@@ -11,6 +11,12 @@ One person. One AI squad.
 `golutra` is a next-generation multi-agent collaboration workspace.  
 It goes beyond traditional IDE extensions and single-chat AI tools by orchestrating multiple agents to execute complex tasks in parallel.
 
+### Product Video
+
+<video src="./assets/readme/golutra_vido.mp4" controls width="100%"></video>
+
+If the embedded player does not load, use this direct link: [Watch video](./assets/readme/golutra_vido.mp4)
+
 ### Core Value
 
 - Unlimited multi-agent collaboration: automatically break down complex tasks and execute in parallel.
@@ -29,6 +35,17 @@ Traditional IDE workflows are usually "single-threaded + manual context switchin
 
 This repository is for product introduction and releases.
 
+Business Email: [golutra&#64;hotmail.com](mailto:golutra%40hotmail.com)  
+Discord: [https://discord.gg/QyNVu56mpY](https://discord.gg/QyNVu56mpY)
+
+### Author
+
+This software is independently developed and maintained by [seekskyworld](https://github.com/seekskyworld).
+
+### Usage License
+
+Commercial use requires prior authorization.
+
 ### Downloads
 
 - Releases: <https://github.com/golutra/golutra/releases>
@@ -43,6 +60,12 @@ This repository is for product introduction and releases.
 
 `golutra` 是新一代多 Agent 协同工作软件。  
 它不是传统 IDE 的插件增强，也不是单一 AI 对话工具，而是把复杂任务交给多个智能 Agent 并行执行的系统级工作台。
+
+### 产品视频
+
+<video src="./assets/readme/golutra_vido.mp4" controls width="100%"></video>
+
+如果上面的播放器未显示，请使用直链观看：[观看视频](./assets/readme/golutra_vido.mp4)
 
 ### 核心价值
 
@@ -61,6 +84,18 @@ This repository is for product introduction and releases.
 ### 仓库说明
 
 这个仓库用于产品介绍与版本发布。
+
+商务邮箱: [golutra&#64;hotmail.com](mailto:golutra%40hotmail.com)  
+交流群二维码：  
+<img src="./assets/readme/Group_QR_code.jpg" alt="群组二维码" width="220" />
+
+### 作者
+
+本软件由 [seekskyworld](https://github.com/seekskyworld) 独立开发与维护。
+
+### 使用许可
+
+商业用途须经授权许可后方可使用。
 
 ### 下载
 
