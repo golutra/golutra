@@ -90,6 +90,34 @@ Commercial use requires prior authorization.
 
 - Releases: <https://github.com/golutra/golutra/releases>
 
+### macOS Security Notice
+
+When first installing from `golutra_macos_aarch64.dmg`, macOS may show:
+
+- "App is damaged" or "Developer cannot be verified"
+
+This is a macOS security mechanism and does not necessarily indicate an issue with the app.
+
+How to open:
+
+1. Open Terminal.
+2. Run the command below (replace the path with your actual app location).
+3. If installed to Applications, for example:
+
+```bash
+xattr -rd com.apple.quarantine /Applications/Golutra.app
+```
+
+Then open the app again.
+
+Why this happens:
+
+- macOS applies quarantine and signature checks to apps downloaded from the internet.
+- Development or non-notarized builds may trigger this warning.
+- This command only removes the quarantine flag and does not modify app contents.
+
+If the app still cannot be opened, please contact the publisher for support.
+
 ## 中文
 
 ### 标语
@@ -180,3 +208,31 @@ Commercial use requires prior authorization.
 ### 下载
 
 - Releases: <https://github.com/golutra/golutra/releases>
+
+### macOS 安全提示说明
+
+首次通过 `golutra_macos_aarch64.dmg` 安装应用，打开时，macOS 可能会提示：
+
+- “App 已损坏”或“无法验证开发者”
+
+这是 macOS 的安全机制提示，并不一定代表应用本身存在问题。
+
+打开方式：
+
+1. 打开终端。
+2. 输入以下命令（将路径替换为你的 App 实际位置）。
+3. 例如安装后的位置：
+
+```bash
+xattr -rd com.apple.quarantine /Applications/Golutra.app
+```
+
+然后再次打开应用即可。
+
+为什么会出现这个提示：
+
+- macOS 会对来自互联网的应用进行隔离与签名校验。
+- 开发版或未公证版本可能触发该提示。
+- 该命令仅移除系统隔离标记，不会修改应用内容。
+
+如果仍无法打开应用，请联系发布者获取帮助。
