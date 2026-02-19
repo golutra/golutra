@@ -84,7 +84,11 @@ In the future, open-sourcing will be reconsidered if maintenance becomes unsusta
 
 ### Usage License
 
-Commercial use requires prior authorization.
+Using `golutra` as a tool to build commercial software is allowed.
+Code and deliverables produced by users through `golutra` belong to the users.
+
+Restrictions apply only to `golutra` itself (including derivative versions).  
+Without prior written authorization, re-development, redistribution, resale, or other commercial distribution of `golutra` is prohibited.
 
 ### Downloads
 
@@ -203,7 +207,11 @@ If the app still cannot be opened, please contact the publisher for support.
 
 ### 使用许可
 
-商业用途须经授权许可后方可使用。
+允许将 `golutra` 作为工具用于商业软件开发。
+用户通过 `golutra` 产出的代码与交付成果归用户所有。
+
+限制仅针对 `golutra` 本体（含衍生版本）。  
+未经事先书面授权，不得对 `golutra` 进行再开发、再分发、转售或其他商业化分发。
 
 ### 下载
 
