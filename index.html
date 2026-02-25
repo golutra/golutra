@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" class="dark" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexus Dashboard</title>
+    <script>
+      (() => {
+        const storageKey = 'nexus-theme';
+        const stored = window.localStorage.getItem(storageKey);
+        const theme = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'dark';
+        const root = document.documentElement;
+        root.dataset.theme = theme;
+        const resolvedTheme = theme === 'system'
+          ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : theme;
+        root.dataset.resolvedTheme = resolvedTheme;
+        root.classList.toggle('dark', resolvedTheme === 'dark');
+      })();
+    </script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <!-- Material Symbols -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['"Be Vietnam Pro"', 'sans-serif'],
+            },
+            colors: {
+              background: 'rgb(var(--color-background) / <alpha-value>)',
+              surface: 'rgb(var(--color-surface) / <alpha-value>)',
+              panel: 'rgb(var(--color-panel) / <alpha-value>)',
+              'panel-strong': 'rgb(var(--color-panel-strong) / <alpha-value>)',
+              'panel-soft': 'rgb(var(--color-panel-soft) / <alpha-value>)',
+              primary: 'rgb(var(--color-primary) / <alpha-value>)',
+              'primary-hover': 'rgb(var(--color-primary-hover) / <alpha-value>)',
+              secondary: 'rgb(var(--color-secondary) / <alpha-value>)',
+              text: 'rgb(var(--color-text) / <alpha-value>)',
+              muted: 'rgb(var(--color-text-muted) / <alpha-value>)',
+              border: 'rgb(var(--color-border) / <alpha-value>)',
+            },
+            boxShadow: {
+              'glow': '0 0 20px -5px rgb(var(--color-primary) / 0.45)',
+              'glass': '0 8px 32px 0 rgb(0 0 0 / 0.32)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgb(var(--scrollbar-thumb));
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgb(var(--scrollbar-thumb-hover));
+      }
+      
+      .glass-panel {
+        background: rgb(var(--color-panel) / 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgb(var(--color-border) / 0.08);
+      }
+      
+      .glass-modal {
+        background: rgb(var(--color-panel-strong) / 0.95);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgb(var(--color-border) / 0.1);
+        box-shadow: var(--shadow-modal);
+      }
+
+      .bg-glass-header {
+        background: rgb(var(--color-panel) / 0.6);
+      }
+
+      .bg-glass-sidebar {
+        background: rgb(var(--color-panel) / 0.7);
+      }
+
+      .text-shadow {
+        text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      }
+    </style>
+</head>
+  <body class="bg-background text-white h-screen overflow-hidden selection:bg-primary/30 selection:text-white">
+    <div id="app"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

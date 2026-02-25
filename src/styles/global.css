@@ -1,0 +1,228 @@
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(var(--scrollbar-thumb));
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--scrollbar-thumb-hover));
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--scrollbar-thumb)) transparent;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+:root {
+  --color-background: 15 15 18;
+  --color-surface: 24 24 27;
+  --color-panel: 18 18 21;
+  --color-panel-strong: 20 20 23;
+  --color-panel-soft: 30 30 36;
+  --color-text: 248 250 252;
+  --color-text-muted: 148 163 184;
+  --color-border: 255 255 255;
+  --color-overlay: 255 255 255;
+  --color-primary: 56 189 248;
+  --color-primary-hover: 14 165 233;
+  --color-secondary: 100 116 139;
+  --scrollbar-thumb: 51 65 85;
+  --scrollbar-thumb-hover: 71 85 105;
+  --shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.5);
+  --app-gradient: radial-gradient(1200px circle at top right, rgb(var(--color-primary) / 0.18), rgb(var(--color-background)) 55%, rgb(5 5 5) 100%);
+  --app-gradient-spot: radial-gradient(900px circle at 20% 20%, rgb(var(--color-primary) / 0.12), transparent 60%);
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --color-background: 248 250 253;
+  --color-surface: 255 255 255;
+  --color-panel: 240 244 249;
+  --color-panel-strong: 233 238 246;
+  --color-panel-soft: 255 255 255;
+  --color-text: 31 31 31;
+  --color-text-muted: 68 71 70;
+  --color-border: 116 119 117;
+  --color-overlay: 31 31 31;
+  --color-primary: 11 87 208;
+  --color-primary-hover: 10 79 184;
+  --color-secondary: 0 99 155;
+  --scrollbar-thumb: 196 199 197;
+  --scrollbar-thumb-hover: 116 119 117;
+  --shadow-modal: 0 25px 50px -12px rgb(15 23 42 / 0.16);
+  --app-gradient: radial-gradient(1200px circle at top right, rgb(var(--color-primary) / 0.12), rgb(var(--color-background)) 45%, rgb(var(--color-panel)) 100%);
+  --app-gradient-spot: radial-gradient(800px circle at 20% 15%, rgb(194 231 255 / 0.45), transparent 60%);
+  color-scheme: light;
+}
+
+:root[data-theme='system'] {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme='system'] {
+    --color-background: 248 250 253;
+    --color-surface: 255 255 255;
+    --color-panel: 240 244 249;
+    --color-panel-strong: 233 238 246;
+    --color-panel-soft: 255 255 255;
+    --color-text: 31 31 31;
+    --color-text-muted: 68 71 70;
+    --color-border: 116 119 117;
+    --color-overlay: 31 31 31;
+    --color-primary: 11 87 208;
+    --color-primary-hover: 10 79 184;
+    --color-secondary: 0 99 155;
+    --scrollbar-thumb: 196 199 197;
+    --scrollbar-thumb-hover: 116 119 117;
+    --shadow-modal: 0 25px 50px -12px rgb(15 23 42 / 0.16);
+    --app-gradient: radial-gradient(1200px circle at top right, rgb(var(--color-primary) / 0.12), rgb(var(--color-background)) 45%, rgb(var(--color-panel)) 100%);
+    --app-gradient-spot: radial-gradient(800px circle at 20% 15%, rgb(194 231 255 / 0.45), transparent 60%);
+    color-scheme: light;
+  }
+}
+
+.app-shell {
+  background-color: rgb(var(--color-background));
+  background-image: var(--app-gradient), var(--app-gradient-spot);
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+:root[data-resolved-theme='light'] .message-bubble--me {
+  background-color: rgb(var(--color-panel-strong)) !important;
+  border: 1px solid rgb(var(--color-border) / 0.35);
+  color: rgb(var(--color-text)) !important;
+}
+
+.text-on-primary {
+  color: #fff !important;
+}
+
+.hover\:text-on-primary:hover {
+  color: #fff !important;
+}
+
+.group:hover .group-hover\:text-on-primary {
+  color: #fff !important;
+}
+
+:root[data-resolved-theme='light'] .text-white {
+  color: rgb(var(--color-text) / 1) !important;
+}
+
+:root[data-resolved-theme='light'] .text-white\/90 {
+  color: rgb(var(--color-text) / 0.9) !important;
+}
+
+:root[data-resolved-theme='light'] .text-white\/80 {
+  color: rgb(var(--color-text) / 0.8) !important;
+}
+
+:root[data-resolved-theme='light'] .text-white\/70 {
+  color: rgb(var(--color-text) / 0.7) !important;
+}
+
+:root[data-resolved-theme='light'] .text-white\/60 {
+  color: rgb(var(--color-text) / 0.6) !important;
+}
+
+:root[data-resolved-theme='light'] .text-white\/50 {
+  color: rgb(var(--color-text) / 0.5) !important;
+}
+
+:root[data-resolved-theme='light'] .text-white\/40 {
+  color: rgb(var(--color-text) / 0.4) !important;
+}
+
+:root[data-resolved-theme='light'] .text-white\/30 {
+  color: rgb(var(--color-text) / 0.3) !important;
+}
+
+:root[data-resolved-theme='light'] .text-white\/20 {
+  color: rgb(var(--color-text) / 0.2) !important;
+}
+
+:root[data-resolved-theme='light'] .placeholder-white\/30::placeholder {
+  color: rgb(var(--color-text) / 0.3) !important;
+}
+
+:root[data-resolved-theme='light'] .placeholder-white\/20::placeholder {
+  color: rgb(var(--color-text) / 0.2) !important;
+}
+
+:root[data-resolved-theme='light'] .bg-white\/20 {
+  background-color: rgb(var(--color-overlay) / 0.2) !important;
+}
+
+:root[data-resolved-theme='light'] .bg-white\/10 {
+  background-color: rgb(var(--color-overlay) / 0.1) !important;
+}
+
+:root[data-resolved-theme='light'] .bg-white\/5 {
+  background-color: rgb(var(--color-overlay) / 0.05) !important;
+}
+
+:root[data-resolved-theme='light'] .bg-white\/\[0\.02\] {
+  background-color: rgb(var(--color-overlay) / 0.02) !important;
+}
+
+:root[data-resolved-theme='light'] .bg-white\/\[0\.03\] {
+  background-color: rgb(var(--color-overlay) / 0.03) !important;
+}
+
+:root[data-resolved-theme='light'] .bg-white\/\[0\.04\] {
+  background-color: rgb(var(--color-overlay) / 0.04) !important;
+}
+
+:root[data-resolved-theme='light'] .bg-white\/\[0\.05\] {
+  background-color: rgb(var(--color-overlay) / 0.05) !important;
+}
+
+:root[data-resolved-theme='light'] .bg-white\/\[0\.06\] {
+  background-color: rgb(var(--color-overlay) / 0.06) !important;
+}
+
+:root[data-resolved-theme='light'] .bg-white\/\[0\.07\] {
+  background-color: rgb(var(--color-overlay) / 0.07) !important;
+}
+
+:root[data-resolved-theme='light'] .border-white\/20 {
+  border-color: rgb(var(--color-border) / 0.45) !important;
+}
+
+:root[data-resolved-theme='light'] .border-white\/10 {
+  border-color: rgb(var(--color-border) / 0.3) !important;
+}
+
+:root[data-resolved-theme='light'] .border-white\/5 {
+  border-color: rgb(var(--color-border) / 0.2) !important;
+}
+
+:root[data-resolved-theme='light'] .ring-white\/20 {
+  --tw-ring-color: rgb(var(--color-border) / 0.45) !important;
+}
+
+:root[data-resolved-theme='light'] .ring-white\/10 {
+  --tw-ring-color: rgb(var(--color-border) / 0.3) !important;
+}
+
+:root[data-resolved-theme='light'] .ring-white\/5 {
+  --tw-ring-color: rgb(var(--color-border) / 0.2) !important;
+}
