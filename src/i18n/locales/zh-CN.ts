@@ -9,6 +9,7 @@ export default {
   },
   nav: {
     chat: '聊天与弹窗',
+    friends: '好友',
     terminal: '终端',
     workspaces: '工作区',
     store: '技能商店',
@@ -26,7 +27,14 @@ export default {
     unavailableSubtitle: '请在 Tauri 桌面应用中打开该页面。',
     errorTitle: '终端启动失败',
     errorSubtitle: '请检查桌面运行时后重试。',
-    resourceLimit: '系统资源不足，无法启动新终端，请先关闭部分后台任务。'
+    resourceLimit: '系统资源不足，无法启动新终端，请先关闭部分后台任务。',
+    statusLabel: '终端状态',
+    statusOptions: {
+      connecting: '连接中',
+      connected: '已连接',
+      working: '工作中',
+      disconnected: '已断开'
+    }
   },
   common: {
     userAvatarAlt: '用户',
@@ -43,7 +51,7 @@ export default {
     },
     input: {
       placeholder: '发送到 {channel}',
-      directPlaceholder: '发送给 @{name}',
+      directPlaceholder: '发送给 {name}',
       send: '发送',
       stop: '停止生成',
       hint: 'Enter 发送 • Shift+Enter 换行',
@@ -76,6 +84,8 @@ export default {
       },
       autoReply: '我已处理你的请求。还有其他需要吗？',
       autoReplyQuestion: '我正在查看这个问题，稍后给你更新。',
+      loadHistory: '加载更早消息',
+      loadingHistory: '正在加载历史...',
       jumpToLatest: '跳到最新消息',
       typing: '{name} 正在输入...',
       status: {
@@ -129,6 +139,23 @@ export default {
       listeningSpotify: '在听 Spotify',
       fixingBugs: '修复 Bug',
       doNotDisturb: '请勿打扰'
+    }
+  },
+  friends: {
+    title: '好友',
+    add: '添加',
+    invite: '邀请',
+    empty: '暂无好友',
+    sections: {
+      project: '项目好友',
+      global: '全局好友'
+    },
+    inviteModal: {
+      titleChannel: '邀请好友',
+      titleDm: '创建群聊',
+      search: '搜索好友',
+      actionInvite: '邀请',
+      actionCreate: '创建群聊'
     }
   },
   invite: {
@@ -532,6 +559,19 @@ export default {
     keybindsHints: '显示快捷键提示',
     keybindsReset: '恢复默认',
     keybindsListTitle: '快捷键参考',
+    data: '数据',
+    dataSubtitle: '修复或重置当前工作区的聊天存储。',
+    dataRepairTitle: '修复消息库',
+    dataRepairHint: '扫描并移除无法读取或损坏的消息。',
+    dataRepairAction: '修复消息',
+    dataRepairConfirm: '扫描并修复当前工作区的聊天库，移除不可读消息？',
+    dataRepairResult: '修复完成，已移除 {count} 条消息。',
+    dataClearTitle: '清空聊天记录',
+    dataClearHint: '删除当前工作区的全部消息和附件。',
+    dataClearAction: '清空所有消息',
+    dataClearConfirm: '此操作会永久删除当前工作区的所有聊天记录，是否继续？',
+    dataClearResult: '已清空 {messages} 条消息，{attachments} 个附件。',
+    dataActionFailed: '操作失败，请重试。',
     keybindProfiles: {
       default: '默认',
       vscode: 'VS Code',
@@ -549,6 +589,7 @@ export default {
       gemini: 'Gemini CLI',
       codex: 'Codex',
       claude: 'Claude Code',
+      terminal: '终端',
       custom: '自定义 CLI'
     },
     memberKind: {

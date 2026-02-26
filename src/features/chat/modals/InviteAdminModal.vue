@@ -37,7 +37,12 @@
             <div class="absolute left-3.5 top-2.5 text-white/30 group-focus-within:text-primary transition-colors">
               <span class="material-symbols-outlined text-[20px]">alternate_email</span>
             </div>
-            <input class="w-full bg-surface border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-white placeholder-white/20 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all text-[14px]" :placeholder="t('invite.admin.userPlaceholder')" type="text" />
+            <input
+              v-model="identifier"
+              class="w-full bg-surface border border-white/10 rounded-xl py-2.5 pl-11 pr-4 text-white placeholder-white/20 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all text-[14px]"
+              :placeholder="t('invite.admin.userPlaceholder')"
+              type="text"
+            />
           </div>
         </div>
 
@@ -61,7 +66,11 @@
       </div>
 
       <div class="p-6 pt-2 bg-gradient-to-t from-panel-strong/80 to-transparent">
-        <button type="button" class="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-primary-hover hover:brightness-110 text-on-primary font-bold text-[14px] shadow-glow flex items-center justify-center gap-2 transition-all active:scale-[0.98] group">
+        <button
+          type="button"
+          @click="handleInvite"
+          class="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-primary-hover hover:brightness-110 text-on-primary font-bold text-[14px] shadow-glow flex items-center justify-center gap-2 transition-all active:scale-[0.98] group"
+        >
           <span>{{ t('invite.admin.send') }}</span>
           <span class="material-symbols-outlined text-[18px] group-hover:translate-x-0.5 transition-transform">send</span>
         </button>
@@ -71,12 +80,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-const emit = defineEmits<{ (e: 'close'): void }>();
+const emit = defineEmits<{ (e: 'close'): void; (e: 'invite', payload: { identifier: string }): void }>();
 
 const { t } = useI18n();
+const identifier = ref('');
+
+const handleInvite = () => {
+  emit('invite', { identifier: identifier.value.trim() });
+};
 
 const permissions = computed(() => [
   {

@@ -14,7 +14,7 @@
     <form
       ref="formRef"
       class="relative bg-white/5 backdrop-blur-md rounded-2xl shadow-lg flex items-end p-2 gap-3 border border-white/5 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/25 focus-within:bg-white/[0.07] transition-all duration-300 group"
-      @submit.prevent="emit('send')"
+      @submit.prevent="emitSend"
     >
       <button type="button" class="w-10 h-10 rounded-xl hover:bg-white/10 text-white/70 flex items-center justify-center shrink-0 transition-colors mb-0.5">
         <span class="material-symbols-outlined text-[22px]">add_circle</span>
@@ -26,7 +26,7 @@
           class="w-full bg-transparent border-none p-0 text-white placeholder-white/30 focus:ring-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 text-[15px] font-light resize-none min-h-[24px]"
           :placeholder="placeholder"
           :maxlength="maxLength"
-          :spellcheck="spellCheck"
+          spellcheck="false"
           rows="1"
           @input="handleInput"
           @compositionstart="isComposing = true"
@@ -54,7 +54,11 @@
           ]"
           @click="applyMention(member)"
         >
-          <div class="w-8 h-8 rounded-full bg-cover bg-center shadow-md" :style="{ backgroundImage: `url('${member.avatar}')` }"></div>
+          <AvatarBadge
+            :avatar="member.avatar"
+            :label="member.name"
+            class="w-8 h-8 rounded-full shadow-md"
+          />
           <div class="min-w-0">
             <div class="text-xs font-semibold text-white truncate">@{{ member.name }}</div>
             <div class="text-[10px] text-white/40 truncate">{{ getMemberRole(member) }}</div>
@@ -98,8 +102,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, toRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useSettings } from '@/shared/composables/useSettings';
-import type { Member } from '../types';
+import type { Member, MessageMentionsPayload } from '../types';
+import AvatarBadge from '@/shared/components/AvatarBadge.vue';
 
 const props = defineProps<{
   modelValue: string;
@@ -109,11 +113,13 @@ const props = defineProps<{
   placeholder?: string;
   members?: Member[];
 }>();
-const emit = defineEmits<{ (e: 'update:modelValue', value: string): void; (e: 'send'): void; (e: 'stop'): void }>();
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: string): void;
+  (e: 'send', payload: MessageMentionsPayload): void;
+  (e: 'stop'): void;
+}>();
 
 const { t } = useI18n();
-const { settings } = useSettings();
-
 const formRef = ref<HTMLFormElement | null>(null);
 const scrollRef = ref<HTMLDivElement | null>(null);
 const inputRef = ref<HTMLTextAreaElement | null>(null);
@@ -121,13 +127,14 @@ const mentionDropdownRef = ref<HTMLDivElement | null>(null);
 const maxLength = computed(() => props.maxLength ?? 1200);
 const isGenerating = computed(() => props.isGenerating ?? false);
 const quickPrompts = computed(() => props.quickPrompts ?? []);
-const placeholder = computed(() => props.placeholder ?? t('chat.input.placeholder', { channel: t('chat.channelDisplay') }));
+const placeholder = computed(() => props.placeholder ?? t('chat.input.placeholder', { channel: '' }));
 const isComposing = ref(false);
-const spellCheck = computed(() => settings.value.language.spellCheck);
 const members = computed(() => props.members ?? []);
 const cursorIndex = ref(0);
 const activeMentionIndex = ref(0);
 const mentionAnchor = ref({ left: 0, top: 0 });
+const mentionTokens = ref<Array<{ id: string; name: string }>>([]);
+const mentionAllPattern = /(^|\s)@all(\s|$)/i;
 
 const handleKeydown = (event: KeyboardEvent) => {
   if (showMentionSuggestions.value) {
@@ -151,7 +158,7 @@ const handleKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Enter' && !event.shiftKey && !isComposing.value) {
     event.preventDefault();
     if (isGenerating.value) return;
-    emit('send');
+    emitSend();
   }
 };
 
@@ -186,11 +193,29 @@ const updateCursor = () => {
   scheduleMentionAnchorUpdate();
 };
 
+const buildSendPayload = (): MessageMentionsPayload => ({
+  mentionIds: mentionTokens.value.map((token) => token.id),
+  mentionAll: mentionAllPattern.test(modelValue.value)
+});
+
+const emitSend = () => {
+  emit('send', buildSendPayload());
+};
+
+const syncMentionTokens = (value: string) => {
+  if (!mentionTokens.value.length) {
+    return;
+  }
+  const lower = value.toLowerCase();
+  mentionTokens.value = mentionTokens.value.filter((token) => lower.includes(`@${token.name.toLowerCase()}`));
+};
+
 const handleInput = (event: Event) => {
   const target = event.target as HTMLTextAreaElement;
   emit('update:modelValue', target.value);
   cursorIndex.value = target.selectionStart ?? target.value.length;
   scheduleMentionAnchorUpdate();
+  syncMentionTokens(target.value);
 };
 
 const mentionState = computed(() => {
@@ -227,20 +252,29 @@ const getMemberRole = (member: Member) => {
 
 const applyMention = (member: Member) => {
   if (!mentionState.value) return;
+  if (!mentionTokens.value.some((token) => token.id === member.id)) {
+    mentionTokens.value.push({ id: member.id, name: member.name });
+  }
   const mention = `@${member.name}`;
   const before = modelValue.value.slice(0, mentionState.value.startIndex);
   const after = modelValue.value.slice(cursorIndex.value);
-  const needsSpace = after.length > 0 && !/^[\s\n]/.test(after);
-  const nextValue = `${before}${mention}${needsSpace ? ' ' : ''}${after}`;
+  const trimmedAfter = after.replace(/^[\s\n]+/, '');
+  const nextValue = `${before}${mention} ${trimmedAfter}`;
   emit('update:modelValue', nextValue);
   nextTick(() => {
     if (!inputRef.value) return;
-    const nextCursor = before.length + mention.length + (needsSpace ? 1 : 0);
+    const nextCursor = before.length + mention.length + 1;
     inputRef.value.focus();
     inputRef.value.setSelectionRange(nextCursor, nextCursor);
     cursorIndex.value = nextCursor;
     updateMentionAnchor();
   });
+};
+
+const registerMention = (member: Member) => {
+  if (!mentionTokens.value.some((token) => token.id === member.id)) {
+    mentionTokens.value.push({ id: member.id, name: member.name });
+  }
 };
 
 const scheduleMentionAnchorUpdate = () => {
@@ -255,10 +289,6 @@ const updateMentionAnchor = () => {
   const anchorIndex = Math.min(Math.max(mentionState.value.startIndex, 0), inputRef.value.value.length);
   const caret = getCaretCoordinates(inputRef.value, anchorIndex);
   if (!caret) return;
-  const style = window.getComputedStyle(inputRef.value);
-  const fontSize = Number.parseFloat(style.fontSize) || caret.height;
-  const lineHeight = Number.parseFloat(style.lineHeight);
-  const resolvedLineHeight = Number.isFinite(lineHeight) ? lineHeight : caret.height;
   const inputRect = inputRef.value.getBoundingClientRect();
   const formRect = formRef.value.getBoundingClientRect();
   const scrollOffsetY = scrollRef.value?.scrollTop ?? 0;
@@ -302,6 +332,11 @@ const getCaretCoordinates = (input: HTMLTextAreaElement, position: number) => {
 };
 
 watch(modelValue, async () => {
+  if (!modelValue.value.trim()) {
+    mentionTokens.value = [];
+  } else {
+    syncMentionTokens(modelValue.value);
+  }
   await nextTick();
   resizeInput();
   scheduleMentionAnchorUpdate();
@@ -322,5 +357,5 @@ onMounted(() => {
   resizeInput();
 });
 
-defineExpose({ focus: focusInput });
+defineExpose({ focus: focusInput, registerMention });
 </script>

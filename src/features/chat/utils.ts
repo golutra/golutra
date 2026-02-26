@@ -2,6 +2,35 @@ import type { Member, Message } from './types';
 
 export const splitMentions = (text: string) => text.split(/(@[\w\s]+)/g).filter(Boolean);
 
+const truncateByChars = (value: string, limit: number) => {
+  const chars = Array.from(value);
+  if (chars.length <= limit) {
+    return value;
+  }
+  return chars.slice(0, limit).join('');
+};
+
+export const buildGroupConversationTitle = (
+  memberIds: string[] | undefined,
+  members: Member[],
+  currentUserId: string,
+  limit = 18
+) => {
+  if (!memberIds || memberIds.length === 0) {
+    return '';
+  }
+  const memberById = new Map(members.map((member) => [member.id, member]));
+  const names = memberIds
+    .filter((id) => id && id !== currentUserId)
+    .map((id) => memberById.get(id)?.name?.trim())
+    .filter((name): name is string => Boolean(name));
+  if (names.length === 0) {
+    return '';
+  }
+  const joined = names.join(',');
+  return truncateByChars(joined, limit);
+};
+
 export const ensureUniqueName = (name: string, members: Member[]) => {
   // Enforce case-insensitive uniqueness to match the UI's duplicate prevention.
   const lowerNames = new Set(members.map((member) => member.name.toLowerCase()));

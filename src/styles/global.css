@@ -138,8 +138,7 @@ html {
   height: 100%;
   border-radius: 12px;
   overflow: hidden;
-  overflow: clip;
-  border: 1px solid transparent;
+  border: 0;
   background-color: rgb(var(--color-background));
   background-image: var(--app-gradient), var(--app-gradient-spot);
   background-repeat: no-repeat;
@@ -168,12 +167,19 @@ html {
   justify-content: space-between;
   height: 40px;
   padding: 0 10px 0 14px;
-  background: transparent;
-  backdrop-filter: blur(16px);
+  background: rgb(var(--color-panel) / 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .titlebar--mac {
   padding-left: 82px;
+}
+
+.titlebar--workspace {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .titlebar__left {
@@ -309,8 +315,8 @@ textarea,
   --shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.5);
   --app-gradient: radial-gradient(1200px circle at top right, rgb(var(--color-primary) / 0.18), rgb(var(--color-background)) 55%, rgb(5 5 5) 100%);
   --app-gradient-spot: radial-gradient(900px circle at 20% 20%, rgb(var(--color-primary) / 0.12), transparent 60%);
-  --window-glow: 0 0 0 1px rgb(var(--color-primary) / 0.28), 0 0 18px rgb(var(--color-primary) / 0.18);
-  --window-glow-inactive: 0 0 0 1px rgb(var(--color-border) / 0.08);
+  --window-glow: none;
+  --window-glow-inactive: none;
   color-scheme: dark;
 }
 
@@ -332,8 +338,8 @@ textarea,
   --shadow-modal: 0 25px 50px -12px rgb(15 23 42 / 0.16);
   --app-gradient: radial-gradient(1200px circle at top right, rgb(var(--color-primary) / 0.12), rgb(var(--color-background)) 45%, rgb(var(--color-panel)) 100%);
   --app-gradient-spot: radial-gradient(800px circle at 20% 15%, rgb(194 231 255 / 0.45), transparent 60%);
-  --window-glow: 0 0 0 1px rgb(var(--color-primary) / 0.22), 0 0 14px rgb(var(--color-primary) / 0.12);
-  --window-glow-inactive: 0 0 0 1px rgb(var(--color-border) / 0.18);
+  --window-glow: none;
+  --window-glow-inactive: none;
   color-scheme: light;
 }
 

@@ -5,7 +5,10 @@
   >
     <header
       class="titlebar"
-      :class="{ 'titlebar--mac': isMacOS }"
+      :class="{
+        'titlebar--mac': isMacOS,
+        'titlebar--workspace': showWorkspaceSelection || resolvedView === 'workspace-selection'
+      }"
       data-tauri-drag-region
       @dblclick="handleToggleMaximize"
     >
@@ -74,11 +77,12 @@
       </div>
       <div
         v-else
-        class="flex h-full w-full bg-background app-shell font-sans relative overflow-hidden"
+        class="flex h-full w-full bg-transparent app-shell font-sans relative overflow-hidden"
       >
         <SidebarNav :active-tab="activeTab" @change="setActiveTab($event)" />
-        <main class="flex-1 h-full overflow-hidden relative flex flex-col pb-16 md:pb-0">
-          <SkillStore v-if="activeTab === 'store'" />
+        <main class="flex-1 h-full overflow-hidden relative flex flex-col pb-16 md:pb-0 bg-panel/50 glass-panel border-0">
+          <FriendsView v-if="activeTab === 'friends'" />
+          <SkillStore v-else-if="activeTab === 'store'" />
           <PluginMarketplace v-else-if="activeTab === 'plugins'" />
           <Settings
             v-else-if="activeTab === 'settings'"
@@ -104,6 +108,7 @@ import TerminalWorkspace from '@/features/terminal/TerminalWorkspace.vue';
 import Settings from '@/features/Settings.vue';
 import WorkspaceSelection from '@/features/WorkspaceSelection.vue';
 import ChatInterface from '@/features/chat/ChatInterface.vue';
+import FriendsView from '@/features/chat/FriendsView.vue';
 import { useWorkspaceStore } from '@/features/workspace/workspaceStore';
 import { useGlobalStore } from '@/features/global/globalStore';
 import { useNavigationStore } from '@/stores/navigationStore';

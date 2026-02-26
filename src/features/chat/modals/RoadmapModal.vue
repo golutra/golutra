@@ -15,9 +15,10 @@
                 <span class="text-white/30 text-[13px] font-bold">{{ t('roadmap.objectiveLabel') }}</span>
               </div>
               <input
+                v-model="objectiveValue"
                 class="w-full bg-white/[0.03] border border-white/5 rounded-lg py-2 pl-[84px] pr-8 text-white/80 text-[13px] font-medium placeholder-white/20 focus:outline-none focus:bg-white/[0.06] focus:border-primary/40 focus:ring-1 focus:ring-primary/40 transition-all duration-200"
                 type="text"
-                :value="objectiveValue"
+                @blur="persistRoadmap"
               />
               <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
                 <span class="material-symbols-outlined text-white/20 text-[14px]">edit</span>
@@ -130,8 +131,10 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import type { RoadmapTask, RoadmapTaskStatus } from '../types';
+import { useProjectStore } from '@/features/workspace/projectStore';
 
 const emit = defineEmits<{ (e: 'close'): void }>();
 
@@ -142,7 +145,10 @@ const listRef = ref<HTMLDivElement | null>(null);
 
 const { t } = useI18n();
 
-const objectiveValue = 'Q4 界面重构与功能实现';
+const projectStore = useProjectStore();
+const { roadmap } = storeToRefs(projectStore);
+const { updateRoadmap } = projectStore;
+const objectiveValue = ref('');
 
 const taskActions = [
   { id: 0, key: 'roadmap.actions.edit', icon: 'edit' },
@@ -150,11 +156,19 @@ const taskActions = [
   { id: 2, key: 'roadmap.actions.markPriority', icon: 'flag' }
 ];
 
-const tasks = ref<RoadmapTask[]>([
-  { id: 1, number: '01', title: 'Initial Research Phase', status: 'done' },
-  { id: 2, number: '02', title: 'UI Wireframes & Prototyping', status: 'in-progress' },
-  { id: 3, number: '03', title: 'Legacy Database Migration', status: 'pending' }
-]);
+const tasks = ref<RoadmapTask[]>([]);
+
+const syncFromStore = () => {
+  objectiveValue.value = roadmap.value.objective;
+  tasks.value = roadmap.value.tasks;
+};
+
+const persistRoadmap = async () => {
+  await updateRoadmap({
+    objective: objectiveValue.value.trim() || roadmap.value.objective,
+    tasks: tasks.value
+  });
+};
 
 watch([editingId, () => tasks.value.length], async () => {
   if (editingId.value && listRef.value) {
@@ -206,6 +220,7 @@ const handleAddTask = () => {
   ];
   editingId.value = newId;
   editValue.value = '';
+  void persistRoadmap();
 };
 
 const saveTask = () => {
@@ -215,6 +230,7 @@ const saveTask = () => {
     task.id === editingId.value ? { ...task, title: editValue.value.trim() || t('roadmap.newTask') } : task
   );
   editingId.value = null;
+  void persistRoadmap();
 };
 
 const handleDelete = (id: number) => {
@@ -222,6 +238,7 @@ const handleDelete = (id: number) => {
   if (openMenuId.value === id) {
     openMenuId.value = null;
   }
+  void persistRoadmap();
 };
 
 const handleTaskAction = (index: number, task: RoadmapTask) => {
@@ -236,4 +253,12 @@ const completion = computed(() => {
   const doneCount = tasks.value.filter((task) => task.status === 'done').length;
   return Math.round((doneCount / Math.max(tasks.value.length, 1)) * 100);
 });
+
+watch(
+  roadmap,
+  () => {
+    syncFromStore();
+  },
+  { immediate: true, deep: true }
+);
 </script>

@@ -56,7 +56,9 @@
       }
 
       .bg-glass-sidebar {
-        background: rgb(var(--color-panel) / 0.7);
+        background: transparent;
+        border-color: transparent;
+        border-right-color: rgb(var(--color-border) / 0.12);
       }
 
       .text-shadow {
@@ -64,7 +66,7 @@
       }
     </style>
 </head>
-  <body class="bg-background text-white h-screen overflow-hidden selection:bg-primary/30 selection:text-white">
+  <body class="text-white h-screen overflow-hidden selection:bg-primary/30 selection:text-white">
     <div id="app"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>

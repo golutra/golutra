@@ -44,6 +44,6 @@ const emit = defineEmits<{ (e: 'open-roadmap'): void; (e: 'open-skills'): void; 
 
 const { t } = useI18n();
 
-const headerTitle = computed(() => props.title ?? t('chat.channelName'));
+const headerTitle = computed(() => props.title ?? '');
 const headerDescription = computed(() => props.description ?? t('chat.channelDescription'));
 </script>

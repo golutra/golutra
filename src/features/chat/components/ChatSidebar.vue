@@ -1,9 +1,9 @@
 <template>
   <div ref="containerRef" class="w-16 md:w-64 bg-panel/50 border-r border-white/5 flex flex-col shrink-0">
-    <div class="h-16 flex items-center px-2 md:px-4 border-b border-white/5 justify-center md:justify-start">
+    <div class="h-16 flex items-center px-2 md:px-4 justify-center md:justify-start">
       <h2 class="text-white font-bold text-sm tracking-wide flex items-center gap-2">
         <span class="material-symbols-outlined text-primary text-[18px]">layers</span>
-        <span class="hidden md:inline">{{ t('chat.sidebar.workspaceName') }}</span>
+        <span class="hidden md:inline">{{ workspaceName || t('chat.sidebar.workspaceName') }}</span>
       </h2>
     </div>
 
@@ -54,7 +54,7 @@
               >
                 <button
                   type="button"
-                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3"
+                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/15 hover:text-white hover:ring-1 hover:ring-white/10 transition-colors flex items-center gap-3"
                   @click="handleAction(item.conversation, item.conversation.pinned ? 'unpin' : 'pin')"
                 >
                   <span class="material-symbols-outlined text-lg opacity-70">push_pin</span>
@@ -62,7 +62,8 @@
                 </button>
                 <button
                   type="button"
-                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3"
+                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/15 hover:text-white hover:ring-1 hover:ring-white/10 transition-colors flex items-center gap-3"
+                  v-if="!isDefaultChannel(item.conversation)"
                   @click="handleAction(item.conversation, 'rename')"
                 >
                   <span class="material-symbols-outlined text-lg opacity-70">edit</span>
@@ -70,7 +71,7 @@
                 </button>
                 <button
                   type="button"
-                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3"
+                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/15 hover:text-white hover:ring-1 hover:ring-white/10 transition-colors flex items-center gap-3"
                   @click="handleAction(item.conversation, item.conversation.muted ? 'unmute' : 'mute')"
                 >
                   <span class="material-symbols-outlined text-lg opacity-70">notifications_off</span>
@@ -79,7 +80,7 @@
                 <div class="h-px bg-white/10 my-1 mx-2"></div>
                 <button
                   type="button"
-                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3"
+                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/15 hover:text-white hover:ring-1 hover:ring-white/10 transition-colors flex items-center gap-3"
                   @click="handleAction(item.conversation, 'clear')"
                 >
                   <span class="material-symbols-outlined text-lg opacity-70">delete_sweep</span>
@@ -87,7 +88,7 @@
                 </button>
                 <button
                   type="button"
-                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center gap-3"
+                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300 hover:ring-1 hover:ring-red-400/40 transition-colors flex items-center gap-3"
                   v-if="!isDefaultChannel(item.conversation)"
                   @click="handleAction(item.conversation, 'delete')"
                 >
@@ -118,8 +119,23 @@
             @click="selectConversation(item.conversation.id)"
           >
             <div class="relative">
-              <div class="w-9 h-9 rounded-full bg-cover bg-center shadow-md" :style="{ backgroundImage: `url('${item.member.avatar}')` }"></div>
-              <div :class="['absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-panel', item.member.status === 'online' ? 'bg-green-500' : item.member.status === 'dnd' ? 'bg-red-500' : 'bg-white/20']"></div>
+              <AvatarBadge
+                :avatar="item.member.avatar"
+                :label="item.member.name"
+                class="w-9 h-9 rounded-full shadow-md"
+              />
+              <div
+                :class="[
+                  'absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-panel',
+                  item.member.status === 'online'
+                    ? 'bg-green-500'
+                    : item.member.status === 'working'
+                      ? 'bg-amber-400'
+                      : item.member.status === 'dnd'
+                        ? 'bg-red-500'
+                        : 'bg-white/20'
+                ]"
+              ></div>
             </div>
             <div class="hidden md:flex items-start gap-3 min-w-0 flex-1">
               <div class="min-w-0 flex-1">
@@ -149,7 +165,7 @@
               >
                 <button
                   type="button"
-                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3"
+                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/15 hover:text-white hover:ring-1 hover:ring-white/10 transition-colors flex items-center gap-3"
                   @click="handleAction(item.conversation, item.conversation.pinned ? 'unpin' : 'pin')"
                 >
                   <span class="material-symbols-outlined text-lg opacity-70">push_pin</span>
@@ -157,7 +173,7 @@
                 </button>
                 <button
                   type="button"
-                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3"
+                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/15 hover:text-white hover:ring-1 hover:ring-white/10 transition-colors flex items-center gap-3"
                   @click="handleAction(item.conversation, item.conversation.muted ? 'unmute' : 'mute')"
                 >
                   <span class="material-symbols-outlined text-lg opacity-70">notifications_off</span>
@@ -166,7 +182,7 @@
                 <div class="h-px bg-white/10 my-1 mx-2"></div>
                 <button
                   type="button"
-                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/5 hover:text-white transition-colors flex items-center gap-3"
+                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/15 hover:text-white hover:ring-1 hover:ring-white/10 transition-colors flex items-center gap-3"
                   @click="handleAction(item.conversation, 'clear')"
                 >
                   <span class="material-symbols-outlined text-lg opacity-70">delete_sweep</span>
@@ -174,7 +190,7 @@
                 </button>
                 <button
                   type="button"
-                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center gap-3"
+                  class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500/20 hover:text-red-300 hover:ring-1 hover:ring-red-400/40 transition-colors flex items-center gap-3"
                   @click="handleAction(item.conversation, 'delete')"
                 >
                   <span class="material-symbols-outlined text-lg opacity-70">delete</span>
@@ -193,12 +209,17 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Conversation, ConversationAction, Member } from '../types';
-import { DEFAULT_CHANNEL_ID } from '../data';
+import AvatarBadge from '@/shared/components/AvatarBadge.vue';
+import { buildGroupConversationTitle } from '../utils';
+import { CURRENT_USER_ID } from '../data';
 
 const props = defineProps<{
   conversations: Conversation[];
   members: Member[];
+  currentUserId?: string;
   activeConversationId: string;
+  workspaceName?: string;
+  defaultChannelId: string | null;
 }>();
 const emit = defineEmits<{
   (e: 'select-conversation', conversationId: string): void;
@@ -206,6 +227,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const DEFAULT_MEMBER_NAME = 'Member';
 
 const openMenuId = ref<string | null>(null);
 const containerRef = ref<HTMLElement | null>(null);
@@ -216,46 +238,36 @@ const normalizePreview = (text: string) => text.replace(/\s+/g, ' ').trim();
 
 const getConversationTitle = (conversation: Conversation) => {
   if (conversation.type === 'dm') {
-    return memberById.value.get(conversation.targetId)?.name ?? t('members.roles.member');
+    const targetId = conversation.targetId ?? '';
+    return memberById.value.get(targetId)?.name ?? DEFAULT_MEMBER_NAME;
   }
-  return conversation.customName ?? (conversation.nameKey ? t(conversation.nameKey) : conversation.targetId);
+  const workspaceLabel = props.workspaceName?.trim();
+  if ((conversation.isDefault || conversation.id === props.defaultChannelId) && workspaceLabel) {
+    return workspaceLabel;
+  }
+  if (conversation.customName) {
+    return conversation.customName;
+  }
+  if (conversation.nameKey) {
+    return t(conversation.nameKey);
+  }
+  const groupTitle = buildGroupConversationTitle(
+    conversation.memberIds,
+    props.members,
+    props.currentUserId ?? CURRENT_USER_ID,
+    25
+  );
+  return groupTitle || conversation.id;
 };
 
 const isDefaultChannel = (conversation: Conversation) =>
-  conversation.type === 'channel' && conversation.targetId === DEFAULT_CHANNEL_ID;
+  conversation.type === 'channel' && conversation.id === props.defaultChannelId;
 
-const getLatestMessage = (conversation: Conversation) => {
-  let latest: Conversation['messages'][number] | null = null;
-  for (const message of conversation.messages) {
-    if (!latest || message.createdAt > latest.createdAt) {
-      latest = message;
-    }
-  }
-  return latest;
-};
-
-const getLastMessageTime = (conversation: Conversation) => getLatestMessage(conversation)?.createdAt ?? 0;
-
-const getLastMessagePreview = (conversation: Conversation) => {
-  const latest = getLatestMessage(conversation);
-  return latest ? normalizePreview(latest.text) : '';
-};
-
-const sortConversations = (items: Conversation[]) =>
-  [...items].sort((a, b) => {
-    if (a.pinned !== b.pinned) {
-      return a.pinned ? -1 : 1;
-    }
-    const timeA = getLastMessageTime(a);
-    const timeB = getLastMessageTime(b);
-    if (timeA !== timeB) {
-      return timeB - timeA;
-    }
-    return getConversationTitle(a).localeCompare(getConversationTitle(b));
-  });
+const getLastMessagePreview = (conversation: Conversation) =>
+  conversation.lastMessagePreview ? normalizePreview(conversation.lastMessagePreview) : '';
 
 const channelItems = computed(() =>
-  sortConversations(props.conversations.filter((conversation) => conversation.type === 'channel')).map((conversation) => ({
+  props.conversations.filter((conversation) => conversation.type === 'channel').map((conversation) => ({
     conversation,
     title: getConversationTitle(conversation),
     preview: getLastMessagePreview(conversation)
@@ -263,9 +275,11 @@ const channelItems = computed(() =>
 );
 
 const directMessageItems = computed(() =>
-  sortConversations(props.conversations.filter((conversation) => conversation.type === 'dm'))
+  props.conversations
+    .filter((conversation) => conversation.type === 'dm')
     .map((conversation) => {
-      const member = memberById.value.get(conversation.targetId);
+      const targetId = conversation.targetId ?? '';
+      const member = memberById.value.get(targetId);
       if (!member) return null;
       return {
         conversation,

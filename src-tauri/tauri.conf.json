@@ -1,22 +1,27 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "nexus-dashboard-suite",
+  "productName": "golutra",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.golutra",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm dev:tauri",
     "beforeBuildCommand": "pnpm build"
   },
   "app": {
     "windows": [
       {
-        "title": "Nexus Dashboard Suite",
-        "width": 800,
-        "height": 600,
+        "title": "golutra",
+        "label": "main",
+        "width": 1400,
+        "height": 900,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "titleBarStyle": "Overlay"
       }
     ],
     "security": {

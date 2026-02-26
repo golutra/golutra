@@ -28,8 +28,7 @@ describe('chat utils', () => {
         senderId: 'me',
         user: 'You',
         avatar: '',
-        text: 'First message',
-        time: '09:00',
+        content: { type: 'text', text: 'First message' },
         createdAt: dayOne,
         isAi: false,
         status: 'sent'
@@ -39,8 +38,7 @@ describe('chat utils', () => {
         senderId: 'me',
         user: 'You',
         avatar: '',
-        text: 'Second message',
-        time: '09:05',
+        content: { type: 'text', text: 'Second message' },
         createdAt: dayOne + 1000 * 60 * 5,
         isAi: false,
         status: 'sent'
@@ -50,8 +48,7 @@ describe('chat utils', () => {
         senderId: 'assistant',
         user: 'AI',
         avatar: '',
-        text: 'Next day message',
-        time: '10:00',
+        content: { type: 'text', text: 'Next day message' },
         createdAt: dayTwo,
         isAi: true,
         status: 'sent'

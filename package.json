@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:tauri": "pnpm run shim:build && pnpm run dev",
+    "shim:build": "cargo build --manifest-path src-tauri/Cargo.toml --bin shim",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
