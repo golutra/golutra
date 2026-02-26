@@ -1,5 +1,15 @@
 <template>
   <div ref="listRef" class="flex-1 overflow-y-auto px-8 py-6 space-y-8 custom-scrollbar flex flex-col">
+    <div v-if="hasMore" class="flex justify-center">
+      <button
+        type="button"
+        class="px-4 py-2 rounded-full text-[12px] font-semibold tracking-wide border border-white/10 bg-panel/40 text-white/70 hover:bg-panel/70 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        :disabled="isLoadingMore"
+        @click="emit('load-more')"
+      >
+        {{ isLoadingMore ? t('chat.messages.loadingHistory') : t('chat.messages.loadHistory') }}
+      </button>
+    </div>
     <template v-for="item in groupedItems" :key="item.id">
       <div v-if="item.type === 'separator'" class="relative flex py-2 items-center justify-center">
         <div class="absolute inset-0 flex items-center">
@@ -16,18 +26,22 @@
         ]"
       >
         <div class="mt-1 shrink-0 cursor-pointer">
-          <div class="w-11 h-11 rounded-[14px] bg-cover bg-center shadow-lg" :style="{ backgroundImage: `url('${item.message.avatar}')` }"></div>
+          <AvatarBadge
+            :avatar="item.message.avatar"
+            :label="resolveMessageAuthor(item.message)"
+            class="w-11 h-11 rounded-[14px] shadow-lg"
+          />
         </div>
         <div :class="['flex flex-col flex-1 min-w-0', isMe(item.message) ? 'items-end' : '']">
           <div :class="['flex items-baseline gap-2.5', isMe(item.message) ? 'flex-row-reverse' : '']">
-            <span class="text-white font-semibold text-[15px] cursor-pointer hover:underline tracking-tight">{{ item.message.user }}</span>
-            <span class="text-white/30 text-[11px] font-medium">{{ item.message.time }}</span>
+            <span class="text-white font-semibold text-[15px] cursor-pointer hover:underline tracking-tight">{{ resolveMessageAuthor(item.message) }}</span>
+            <span class="text-white/30 text-[11px] font-medium">{{ getMessageTime(item.message) }}</span>
           </div>
-          <div v-if="isMe(item.message)" class="mt-1 bg-white text-slate-900 message-bubble--me px-5 py-3 rounded-2xl rounded-tr-sm shadow-lg max-w-[80%] text-[15px] leading-relaxed font-medium">
-            {{ item.message.text }}
+          <div v-if="isMe(item.message)" class="selectable mt-1 bg-white text-slate-900 message-bubble--me px-5 py-3 rounded-2xl rounded-tr-sm shadow-lg max-w-[80%] text-[15px] leading-relaxed font-medium">
+            {{ resolveMessageText(item.message) }}
           </div>
-          <div v-else class="text-white/90 text-[15px] leading-relaxed mt-1 font-light tracking-wide">
-            <template v-for="(part, index) in splitMentions(item.message.text)" :key="index">
+          <div v-else class="selectable text-white/90 text-[15px] leading-relaxed mt-1 font-light tracking-wide">
+            <template v-for="(part, index) in splitMentions(resolveMessageText(item.message))" :key="index">
               <span v-if="part.startsWith('@')" class="text-primary bg-primary/10 px-1.5 py-0.5 rounded cursor-pointer hover:bg-primary/20 transition-colors font-medium">{{ part }}</span>
               <span v-else>{{ part }}</span>
             </template>
@@ -39,10 +53,13 @@
           </div>
 
           <div v-if="item.message.attachment && item.message.attachment.type === 'image'" class="mt-3 bg-white/5 rounded-xl max-w-sm overflow-hidden border border-white/5 group/image relative cursor-pointer hover:border-primary/30 transition-all hover:shadow-lg">
-            <div class="h-44 w-full bg-cover bg-center" :style="{ backgroundImage: `url('${item.message.attachment.url}')` }"></div>
+            <div
+              class="h-44 w-full bg-cover bg-center"
+              :style="{ backgroundImage: `url('${item.message.attachment.thumbnailPath ?? item.message.attachment.filePath}')` }"
+            ></div>
             <div class="p-3 bg-white/[0.02] backdrop-blur-sm">
-              <div class="text-[13px] font-medium text-white truncate">{{ item.message.attachment.name }}</div>
-              <div class="text-[11px] text-white/40 mt-0.5">{{ item.message.attachment.size }}</div>
+              <div class="text-[13px] font-medium text-white truncate">{{ item.message.attachment.fileName }}</div>
+              <div class="text-[11px] text-white/40 mt-0.5">{{ formatFileSize(item.message.attachment.fileSize) }}</div>
             </div>
             <div class="absolute inset-0 bg-primary/20 opacity-0 group-hover/image:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-[2px]">
               <span class="material-symbols-outlined text-white text-3xl drop-shadow-lg">download</span>
@@ -67,8 +84,14 @@
     </template>
 
     <div v-if="isTyping" class="flex items-center gap-4 py-2 px-6 -mx-6 rounded-2xl">
-      <div class="w-11 h-11 rounded-[14px] bg-cover bg-center shadow-lg flex items-center justify-center" :style="{ backgroundImage: typingAvatar ? `url('${typingAvatar}')` : 'none' }">
-        <span v-if="!typingAvatar" class="material-symbols-outlined text-white/40 text-[22px]">smart_toy</span>
+      <AvatarBadge
+        v-if="typingAvatar"
+        :avatar="typingAvatar"
+        :label="typingName"
+        class="w-11 h-11 rounded-[14px] shadow-lg"
+      />
+      <div v-else class="w-11 h-11 rounded-[14px] bg-panel/60 shadow-lg flex items-center justify-center">
+        <span class="material-symbols-outlined text-white/40 text-[22px]">smart_toy</span>
       </div>
       <div class="flex flex-col">
         <div class="flex items-center gap-1 text-white/40 text-[12px]">
@@ -96,7 +119,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Message } from '../types';
-import { groupMessagesByDay, splitMentions } from '../utils';
+import { formatMessageTime, groupMessagesByDay, splitMentions } from '../utils';
+import AvatarBadge from '@/shared/components/AvatarBadge.vue';
 
 const props = defineProps<{
   messages: Message[];
@@ -105,8 +129,10 @@ const props = defineProps<{
   isTyping?: boolean;
   typingName?: string;
   typingAvatar?: string;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }>();
-const emit = defineEmits<{ (e: 'open-roadmap'): void }>();
+const emit = defineEmits<{ (e: 'open-roadmap'): void; (e: 'load-more'): void }>();
 
 const messages = toRef(props, 'messages');
 const listRef = ref<HTMLDivElement | null>(null);
@@ -118,6 +144,8 @@ const groupedItems = computed(() => groupMessagesByDay(messages.value, locale.va
 const isTyping = computed(() => props.isTyping ?? false);
 const typingName = computed(() => props.typingName ?? t('members.roles.aiAssistant'));
 const typingAvatar = computed(() => props.typingAvatar ?? '');
+const hasMore = computed(() => props.hasMore ?? false);
+const isLoadingMore = computed(() => props.isLoadingMore ?? false);
 const showJumpButton = computed(() => !isPinnedToBottom.value);
 
 const isMe = (msg: Message) => {
@@ -125,6 +153,40 @@ const isMe = (msg: Message) => {
     return msg.senderId === props.currentUserId;
   }
   return msg.user === props.currentUserName;
+};
+
+const resolveMessageAuthor = (message: Message) => {
+  if (message.senderId && message.senderId === props.currentUserId) {
+    return props.currentUserName || message.user;
+  }
+  if (message.userKey) {
+    return t(message.userKey, message.userArgs ?? {});
+  }
+  return message.user;
+};
+
+const resolveMessageText = (message: Message) => {
+  if (message.content.type === 'system') {
+    return t(message.content.key, message.content.args ?? {});
+  }
+  return message.content.text;
+};
+
+const getMessageTime = (message: Message) => formatMessageTime(message.createdAt, locale.value);
+
+const formatFileSize = (bytes: number) => {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return '0 B';
+  }
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let size = bytes;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  const precision = size < 10 && unitIndex > 0 ? 1 : 0;
+  return `${size.toFixed(precision)} ${units[unitIndex]}`;
 };
 
 const updatePinnedState = () => {

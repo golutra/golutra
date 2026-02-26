@@ -17,16 +17,16 @@
         </div>
       </div>
 
-      <div class="mt-8 bg-panel/60 backdrop-blur-md p-1 rounded-xl border border-white/5 inline-flex relative z-10 w-72 shadow-lg">
+      <div class="mt-8 bg-panel/60 backdrop-blur-md p-1.5 rounded-xl border border-white/5 inline-flex relative z-10 w-80 shadow-lg">
         <span
-          class="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-lg bg-gradient-to-br from-primary/25 via-white/[0.08] to-white/[0.03] border border-primary/20 shadow-[0_8px_20px_rgba(0,0,0,0.25)] backdrop-blur-md transition-transform duration-300 ease-out pointer-events-none"
+          class="absolute inset-y-1.5 left-1.5 w-[calc(50%-0.375rem)] rounded-lg bg-gradient-to-br from-primary/25 via-white/[0.08] to-white/[0.03] border border-primary/20 shadow-[0_8px_20px_rgba(0,0,0,0.25)] backdrop-blur-md transition-transform duration-300 ease-out pointer-events-none"
           :class="activeTab === 'installed' ? 'translate-x-full' : 'translate-x-0'"
         ></span>
         <button
           type="button"
-          @click="activeTab = 'store'"
+          @click="setSkillStoreTab('store')"
           :class="[
-            'flex-1 py-1.5 rounded-lg text-xs font-bold transition-all relative z-10',
+            'flex-1 py-2 rounded-lg text-sm font-bold transition-all relative z-10',
             activeTab === 'store'
               ? 'text-white text-shadow'
               : 'text-white/60 hover:text-white'
@@ -36,9 +36,9 @@
         </button>
         <button
           type="button"
-          @click="activeTab = 'installed'"
+          @click="setSkillStoreTab('installed')"
           :class="[
-            'flex-1 py-1.5 rounded-lg text-xs font-bold transition-all relative z-10',
+            'flex-1 py-2 rounded-lg text-sm font-bold transition-all relative z-10',
             activeTab === 'installed'
               ? 'text-white text-shadow'
               : 'text-white/60 hover:text-white'
@@ -49,11 +49,11 @@
       </div>
 
       <div class="flex items-center gap-2 mt-6 overflow-x-auto max-w-full pb-2 no-scrollbar">
-        <button class="px-4 py-1.5 rounded-full bg-primary/20 text-primary border border-primary/20 text-xs font-bold whitespace-nowrap">{{ t('skillStore.filters.all') }}</button>
+        <button class="px-5 py-2 rounded-full bg-primary/20 text-primary border border-primary/20 text-sm font-bold whitespace-nowrap">{{ t('skillStore.filters.all') }}</button>
         <button
           v-for="filter in filters"
           :key="filter"
-          class="px-4 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/5 text-xs font-bold transition-colors whitespace-nowrap"
+          class="px-5 py-2 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/5 text-sm font-bold transition-colors whitespace-nowrap"
         >
           {{ t(filter) }}
         </button>
@@ -61,9 +61,9 @@
     </header>
 
     <div class="flex-1 overflow-y-auto px-10 pb-12">
-      <div v-if="activeTab === 'store'" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 max-w-7xl mx-auto">
+      <div v-if="activeTab === 'store'" class="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-6 max-w-7xl mx-auto">
         <div
-          v-for="skill in skills"
+          v-for="skill in storeSkills"
           :key="skill.id"
           class="glass-panel bg-panel-strong/60 rounded-3xl p-6 border border-white/5 hover:border-primary/30 transition-all duration-300 hover:shadow-glow hover:-translate-y-1 group flex flex-col h-full relative overflow-hidden"
         >
@@ -103,6 +103,7 @@
           <button
             v-else
             class="w-full py-3 rounded-xl bg-primary hover:bg-primary-hover text-on-primary font-bold text-[13px] shadow-glow transition-all active:scale-95 flex items-center justify-center gap-2"
+            @click="handleInstall(skill.id)"
           >
             <span class="material-symbols-outlined text-[18px]">add_to_drive</span>
             {{ t('skillStore.installFolder') }}
@@ -110,8 +111,8 @@
         </div>
       </div>
 
-      <div v-else class="max-w-7xl mx-auto">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div v-else class="max-w-[1600px] mx-auto">
+        <div class="grid grid-cols-[repeat(auto-fit,minmax(260px,320px))] gap-6 justify-start">
           <div
             v-for="skill in installedSkills"
             :key="skill.id"
@@ -133,6 +134,7 @@
               <button
                 type="button"
                 class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-red-500/20 bg-red-500/5 text-red-300 text-[11px] font-semibold hover:bg-red-500/10 hover:border-red-500/40 transition-colors"
+                @click="handleRemove(skill.id)"
               >
                 <span class="material-symbols-outlined text-[14px]">delete</span>
                 {{ t('common.remove') }}
@@ -142,13 +144,13 @@
 
           <button
             type="button"
-            class="glass-panel bg-panel-strong/40 rounded-3xl p-6 border border-dashed border-white/10 hover:border-primary/40 transition-all duration-300 hover:shadow-glow hover:-translate-y-1 group flex flex-col items-center justify-center h-full min-h-[220px] text-center"
+            class="glass-panel bg-panel-strong/40 rounded-3xl p-4 border border-dashed border-white/10 hover:border-primary/40 transition-all duration-300 hover:shadow-glow hover:-translate-y-1 group flex flex-col items-center justify-center h-full min-h-[160px] text-center"
           >
-            <div class="w-12 h-12 rounded-full bg-white/5 group-hover:bg-primary/10 flex items-center justify-center text-white/30 group-hover:text-primary transition-colors mb-3">
-              <span class="material-symbols-outlined text-2xl">add</span>
+            <div class="w-10 h-10 rounded-full bg-white/5 group-hover:bg-primary/10 flex items-center justify-center text-white/30 group-hover:text-primary transition-colors mb-2">
+              <span class="material-symbols-outlined text-xl">add</span>
             </div>
-            <span class="text-white/60 font-medium text-sm group-hover:text-white transition-colors">{{ t('skills.library.importTitle') }}</span>
-            <span class="text-white/30 text-xs mt-1">{{ t('skills.library.importSubtitle') }}</span>
+            <span class="text-white/60 font-medium text-[13px] group-hover:text-white transition-colors">{{ t('skills.library.importTitle') }}</span>
+            <span class="text-white/30 text-[11px] mt-1">{{ t('skills.library.importSubtitle') }}</span>
           </button>
         </div>
       </div>
@@ -157,21 +159,41 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { createLibrarySkills } from '@/features/skills/skillLibrary';
+import { useGlobalStore } from '@/features/global/globalStore';
+import { useNavigationStore } from '@/stores/navigationStore';
 
-const skills = [
-  { id: 1, titleKey: 'skillStore.skills.automation.title', descKey: 'skillStore.skills.automation.desc', icon: 'folder_special', color: 'text-indigo-400', bg: 'bg-indigo-500/10', rating: '4.9', type: 'Install Folder' },
-  { id: 2, titleKey: 'skillStore.skills.uiToolkit.title', descKey: 'skillStore.skills.uiToolkit.desc', icon: 'folder_shared', color: 'text-pink-400', bg: 'bg-pink-500/10', rating: '4.8', type: 'Install Folder' },
-  { id: 3, titleKey: 'skillStore.skills.projectTracking.title', descKey: 'skillStore.skills.projectTracking.desc', icon: 'topic', color: 'text-emerald-400', bg: 'bg-emerald-500/10', rating: '4.7', type: 'Install Folder' },
-  { id: 4, titleKey: 'skillStore.skills.marketingAssets.title', descKey: 'skillStore.skills.marketingAssets.desc', icon: 'snippet_folder', color: 'text-orange-400', bg: 'bg-orange-500/10', rating: '4.5', type: 'Installed', installed: true },
-  { id: 5, titleKey: 'skillStore.skills.devOpsConfig.title', descKey: 'skillStore.skills.devOpsConfig.desc', icon: 'folder_zip', color: 'text-cyan-400', bg: 'bg-cyan-500/10', rating: '4.6', type: 'Install Folder' },
-  { id: 6, titleKey: 'skillStore.skills.researchLibrary.title', descKey: 'skillStore.skills.researchLibrary.desc', icon: 'folder_copy', color: 'text-red-400', bg: 'bg-red-500/10', rating: '5.0', type: 'Install Folder' }
-];
+type StoreSkill = {
+  id: number;
+  titleKey: string;
+  descKey: string;
+  icon: string;
+  color: string;
+  bg: string;
+  rating: string;
+};
 
-const activeTab = ref<'store' | 'installed'>('store');
-const installedSkills = createLibrarySkills();
+const skills: StoreSkill[] = [];
+
+const navigationStore = useNavigationStore();
+const { skillStoreTab } = storeToRefs(navigationStore);
+const { setSkillStoreTab } = navigationStore;
+const activeTab = skillStoreTab;
+const { installedSkillIds, installSkill, removeSkill } = useGlobalStore();
+const librarySkills = createLibrarySkills();
+const installedSkills = computed(() =>
+  librarySkills.filter((skill) => installedSkillIds.value.includes(skill.id))
+);
+
+const storeSkills = computed(() =>
+  skills.map((skill) => ({
+    ...skill,
+    installed: installedSkillIds.value.includes(skill.id)
+  }))
+);
 
 const filters = [
   'skillStore.filters.engineering',
@@ -182,4 +204,12 @@ const filters = [
 ];
 
 const { t } = useI18n();
+
+const handleInstall = (id: number) => {
+  void installSkill(id);
+};
+
+const handleRemove = (id: number) => {
+  void removeSkill(id);
+};
 </script>

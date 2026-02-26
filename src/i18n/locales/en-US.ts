@@ -9,6 +9,7 @@ export default {
   },
   nav: {
     chat: 'Chat & Modals',
+    friends: 'Friends',
     terminal: 'Terminal',
     workspaces: 'Workspaces',
     store: 'Skill Store',
@@ -26,7 +27,14 @@ export default {
     unavailableSubtitle: 'Open this view inside the Tauri desktop app to use terminals.',
     errorTitle: 'Terminal failed to start',
     errorSubtitle: 'Check the desktop runtime and try again.',
-    resourceLimit: 'System resources are low. Close some background terminals and try again.'
+    resourceLimit: 'System resources are low. Close some background terminals and try again.',
+    statusLabel: 'Terminal status',
+    statusOptions: {
+      connecting: 'Connecting',
+      connected: 'Connected',
+      working: 'Working',
+      disconnected: 'Disconnected'
+    }
   },
   common: {
     userAvatarAlt: 'User',
@@ -43,7 +51,7 @@ export default {
     },
     input: {
       placeholder: 'Message {channel}',
-      directPlaceholder: 'Message @{name}',
+      directPlaceholder: 'Message {name}',
       send: 'Send',
       stop: 'Stop',
       hint: 'Enter to send • Shift+Enter for newline',
@@ -76,6 +84,8 @@ export default {
       },
       autoReply: 'I have processed your request. Is there anything else you need?',
       autoReplyQuestion: 'Let me take a closer look and get back to you shortly.',
+      loadHistory: 'Load earlier messages',
+      loadingHistory: 'Loading history...',
       jumpToLatest: 'Jump to latest',
       typing: '{name} is typing...',
       status: {
@@ -129,6 +139,23 @@ export default {
       listeningSpotify: 'Listening to Spotify',
       fixingBugs: 'Fixing bugs',
       doNotDisturb: 'Do Not Disturb'
+    }
+  },
+  friends: {
+    title: 'Friends',
+    add: 'Add',
+    invite: 'Invite',
+    empty: 'No friends yet',
+    sections: {
+      project: 'Project Friends',
+      global: 'Global Friends'
+    },
+    inviteModal: {
+      titleChannel: 'Invite Friends',
+      titleDm: 'Create Group Chat',
+      search: 'Search friends',
+      actionInvite: 'Invite',
+      actionCreate: 'Create Group'
     }
   },
   invite: {
@@ -532,6 +559,19 @@ export default {
     keybindsHints: 'Show Shortcut Hints',
     keybindsReset: 'Reset to Defaults',
     keybindsListTitle: 'Shortcut Reference',
+    data: 'Data',
+    dataSubtitle: 'Repair or reset local chat storage for this workspace.',
+    dataRepairTitle: 'Repair message database',
+    dataRepairHint: 'Scan and remove unreadable or corrupted messages.',
+    dataRepairAction: 'Repair messages',
+    dataRepairConfirm: 'Scan this workspace chat database and remove unreadable messages?',
+    dataRepairResult: 'Repair completed. Removed {count} messages.',
+    dataClearTitle: 'Clear chat history',
+    dataClearHint: 'Delete all messages and attachments for this workspace.',
+    dataClearAction: 'Clear all messages',
+    dataClearConfirm: 'This will permanently remove all chat messages for this workspace. Continue?',
+    dataClearResult: 'Cleared {messages} messages and {attachments} attachments.',
+    dataActionFailed: 'Operation failed. Please try again.',
     keybindProfiles: {
       default: 'Default',
       vscode: 'VS Code',
@@ -549,6 +589,7 @@ export default {
       gemini: 'Gemini CLI',
       codex: 'Codex',
       claude: 'Claude Code',
+      terminal: 'Terminal',
       custom: 'Custom CLI'
     },
     memberKind: {

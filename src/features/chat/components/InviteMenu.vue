@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed top-[74px] right-6 z-50 w-[260px] bg-panel/80 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-200 origin-top-right ring-1 ring-white/5">
+  <div :class="[positionClass, baseClass]">
     <div class="px-3 py-2 mb-1">
       <h3 class="text-white font-semibold text-[13px] tracking-tight">{{ t('invite.menu.title') }}</h3>
       <p class="text-white/40 text-[11px] font-medium mt-0.5">{{ t('invite.menu.subtitle') }}</p>
@@ -48,9 +48,15 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
+const props = defineProps<{ positionClass?: string }>();
 const emit = defineEmits<{ (e: 'select', type: 'admin' | 'assistant' | 'member'): void }>();
 
 const { t } = useI18n();
+
+const baseClass =
+  'z-50 w-[260px] bg-panel/80 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl flex flex-col p-1.5 animate-in fade-in zoom-in-95 duration-200 origin-top-right ring-1 ring-white/5';
+const positionClass = computed(() => props.positionClass ?? 'fixed top-[74px] right-6');
 </script>

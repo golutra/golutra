@@ -1,5 +1,12 @@
+import type { TerminalConnectionStatus, TerminalType } from '@/shared/types/terminal';
+
 export type MemberRole = 'owner' | 'admin' | 'assistant' | 'member';
-export type MemberStatus = 'online' | 'offline' | 'dnd';
+export type MemberStatus = 'online' | 'working' | 'dnd' | 'offline';
+
+export type MessageMentionsPayload = {
+  mentionIds: string[];
+  mentionAll: boolean;
+};
 
 export type Member = {
   id: string;
@@ -9,21 +16,63 @@ export type Member = {
   roleType: MemberRole;
   avatar: string;
   status: MemberStatus;
+  terminalStatus?: TerminalConnectionStatus;
+  terminalType?: TerminalType;
+  terminalCommand?: string;
+  terminalPath?: string;
+  autoStartTerminal?: boolean;
+  manualStatus?: MemberStatus;
+  unlimitedAccess?: boolean;
+  sandboxed?: boolean;
 };
 
-export type MemberAction = 'send-message' | 'mention' | 'rename' | 'remove';
+export type Contact = {
+  id: string;
+  name: string;
+  avatar: string;
+  roleType: MemberRole;
+  status: MemberStatus;
+  createdAt: number;
+};
+
+export type FriendScope = 'project' | 'global';
+
+export type FriendEntry = {
+  id: string;
+  name: string;
+  avatar: string;
+  roleType: MemberRole;
+  status: MemberStatus;
+  terminalStatus?: TerminalConnectionStatus;
+  scope: FriendScope;
+  terminalType?: TerminalType;
+  terminalCommand?: string;
+  terminalPath?: string;
+};
+
+export type MemberAction = 'send-message' | 'mention' | 'rename' | 'remove' | 'set-status' | 'open-terminal';
+export type MemberActionPayload = {
+  action: MemberAction;
+  member: Member;
+  status?: MemberStatus;
+};
 
 export type ConversationType = 'channel' | 'dm';
 
 export type Conversation = {
   id: string;
   type: ConversationType;
-  targetId: string;
+  memberIds: string[];
+  targetId?: string;
   nameKey?: string;
   customName?: string;
   descriptionKey?: string;
   pinned: boolean;
   muted: boolean;
+  lastMessageAt?: number;
+  lastMessagePreview?: string;
+  isDefault?: boolean;
+  unreadCount?: number;
   messages: Message[];
 };
 
@@ -32,9 +81,13 @@ export type ConversationAction = 'pin' | 'unpin' | 'rename' | 'mute' | 'unmute' 
 export type MessageAttachment =
   | {
       type: 'image';
-      name: string;
-      size: string;
-      url: string;
+      filePath: string;
+      fileName: string;
+      fileSize: number;
+      mimeType: string;
+      width?: number;
+      height?: number;
+      thumbnailPath?: string;
     }
   | {
       type: 'roadmap';
@@ -43,13 +96,25 @@ export type MessageAttachment =
 
 export type MessageStatus = 'sending' | 'sent' | 'failed';
 
+export type MessageContent =
+  | {
+      type: 'text';
+      text: string;
+    }
+  | {
+      type: 'system';
+      key: string;
+      args?: Record<string, string>;
+    };
+
 export type Message = {
-  id: number;
+  id: string;
   senderId?: string;
   user: string;
+  userKey?: string;
+  userArgs?: Record<string, string | number>;
   avatar: string;
-  text: string;
-  time: string;
+  content: MessageContent;
   createdAt: number;
   isAi: boolean;
   attachment?: MessageAttachment;

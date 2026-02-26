@@ -1,33 +1,39 @@
 use std::{
-  collections::{HashMap, VecDeque},
-  env,
+  collections::HashMap,
   fs,
-  io::{Read, Write},
   path::{Component, Path, PathBuf},
   sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
-    Arc, Mutex,
+    atomic::{AtomicUsize, Ordering},
+    Mutex,
   },
-  thread,
-  time::{Duration, SystemTime, UNIX_EPOCH},
+  time::{SystemTime, UNIX_EPOCH},
 };
 
 use fs2::FileExt;
-use portable_pty::{native_pty_system, Child, ChildKiller, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
-use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent};
+use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri_plugin_log::{Target, TargetKind};
 
-static SESSION_COUNTER: AtomicUsize = AtomicUsize::new(1);
+mod chat_db;
+mod terminal;
+use chat_db::{
+  chat_clear_all_messages, chat_clear_conversation, chat_create_group, chat_delete_conversation, chat_ensure_direct,
+  chat_get_messages, chat_list_conversations, chat_mark_conversation_read_latest, chat_rename_conversation,
+  chat_repair_messages, chat_send_message, chat_set_conversation_members, chat_set_conversation_settings,
+  chat_ulid_new, ChatDbManager,
+};
+use terminal::{
+  cleanup_ephemeral_sessions_for_window, has_active_sessions, shutdown_sessions, spawn_status_poller,
+  terminal_ack, terminal_attach, terminal_close, terminal_create, terminal_dispatch, terminal_resize,
+  terminal_set_active, terminal_set_member_status, terminal_write, TerminalManager,
+};
+
 static WINDOW_COUNTER: AtomicUsize = AtomicUsize::new(1);
 static WORKSPACE_WINDOW_COUNTER: AtomicUsize = AtomicUsize::new(1);
 static PROJECT_ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
 const TERMINAL_WINDOW_LABEL: &str = "terminal-main";
-const SESSION_BUFFER_LIMIT_BYTES: usize = 1 * 1024 * 1024;
-const TOTAL_BUFFER_LIMIT_BYTES: usize = 500 * 1024 * 1024;
-const WORKING_SILENCE_TIMEOUT_MS: u64 = 2000;
-const STATUS_POLL_INTERVAL_MS: u64 = 500;
 const RECENT_WORKSPACES_FILE: &str = "recent-workspaces.json";
 const WORKSPACE_REGISTRY_FILE: &str = "workspace-registry.json";
 const WORKSPACE_REGISTRY_LOCK_FILE: &str = "workspace-registry.lock";
@@ -38,58 +44,30 @@ const WORKSPACE_REGISTRY_MISMATCH_PREFIX: &str = "workspace_registry_mismatch:";
 const WORKSPACE_REGISTRY_GC_MIN_AGE_MS: u64 = 1000 * 60 * 60 * 24 * 30;
 const WORKSPACE_REGISTRY_GC_MAX_CHECKS: usize = 12;
 
-struct TerminalHandle {
-  master: Box<dyn MasterPty + Send>,
-  writer: Arc<Mutex<Box<dyn Write + Send>>>,
-  killer: Box<dyn ChildKiller + Send + Sync>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TerminalSessionStatus {
-  Online,
-  Working,
-  Offline,
-}
-
-impl TerminalSessionStatus {
-  fn as_str(&self) -> &'static str {
-    match self {
-      TerminalSessionStatus::Online => "online",
-      TerminalSessionStatus::Working => "working",
-      TerminalSessionStatus::Offline => "offline",
+fn find_repo_root(path: &Path) -> Option<PathBuf> {
+  for ancestor in path.ancestors() {
+    if ancestor.file_name().and_then(|name| name.to_str()) == Some("src-tauri") {
+      return ancestor.parent().map(|parent| parent.to_path_buf());
     }
   }
+  None
 }
 
-struct TerminalSession {
-  id: String,
-  status: TerminalSessionStatus,
-  buffer: VecDeque<u8>,
-  member_id: Option<String>,
-  workspace_id: Option<String>,
-  active: bool,
-  last_activity_at: Option<u64>,
-  handle: Option<TerminalHandle>,
-  keep_alive: bool,
-  owner_window_label: Option<String>,
-}
-
-struct SessionRegistry {
-  sessions: HashMap<String, TerminalSession>,
-  total_bytes: usize,
-}
-
-struct InitialWriteState {
-  session_id: String,
-  payload: String,
-  writer: Arc<Mutex<Box<dyn Write + Send>>>,
-  sessions: Arc<Mutex<SessionRegistry>>,
-  app: AppHandle,
-  sent: AtomicBool,
-}
-
-struct TerminalManager {
-  sessions: Arc<Mutex<SessionRegistry>>,
+fn resolve_log_dir() -> PathBuf {
+  if let Ok(value) = std::env::var("GOLUTRA_LOG_DIR") {
+    return PathBuf::from(value);
+  }
+  let cwd = std::env::current_dir().ok();
+  let exe_dir = std::env::current_exe()
+    .ok()
+    .and_then(|path| path.parent().map(|parent| parent.to_path_buf()));
+  let root = cwd
+    .as_ref()
+    .and_then(|path| find_repo_root(path))
+    .or_else(|| exe_dir.as_ref().and_then(|path| find_repo_root(path)))
+    .or_else(|| cwd.clone())
+    .unwrap_or_else(|| PathBuf::from("."));
+  root.join("log")
 }
 
 struct WorkspaceRegistryLock {
@@ -98,17 +76,6 @@ struct WorkspaceRegistryLock {
 
 struct WorkspaceWindowRegistry {
   workspaces: Mutex<HashMap<String, String>>,
-}
-
-impl Default for TerminalManager {
-  fn default() -> Self {
-    Self {
-      sessions: Arc::new(Mutex::new(SessionRegistry {
-        sessions: HashMap::new(),
-        total_bytes: 0,
-      })),
-    }
-  }
 }
 
 impl Default for WorkspaceRegistryLock {
@@ -123,32 +90,6 @@ impl Default for WorkspaceWindowRegistry {
       workspaces: Mutex::new(HashMap::new()),
     }
   }
-}
-
-#[derive(Serialize, Clone)]
-struct TerminalOutputPayload {
-  #[serde(rename = "sessionId")]
-  session_id: String,
-  data: String,
-}
-
-#[derive(Serialize, Clone)]
-struct TerminalExitPayload {
-  #[serde(rename = "sessionId")]
-  session_id: String,
-  code: Option<i32>,
-  signal: Option<String>,
-}
-
-#[derive(Serialize, Clone)]
-struct TerminalStatusPayload {
-  #[serde(rename = "sessionId")]
-  session_id: String,
-  status: String,
-  #[serde(rename = "memberId")]
-  member_id: Option<String>,
-  #[serde(rename = "workspaceId")]
-  workspace_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -205,400 +146,6 @@ struct AvatarContent {
   mime: String,
 }
 
-fn default_shell_spec() -> (String, Vec<String>) {
-  if cfg!(windows) {
-    ("powershell.exe".to_string(), vec!["-NoLogo".to_string()])
-  } else {
-    let shell = env::var("SHELL").unwrap_or_else(|_| "bash".to_string());
-    (shell, Vec::new())
-  }
-}
-
-fn mark_session_working_on_input(
-  sessions: &Arc<Mutex<SessionRegistry>>,
-  app: &AppHandle,
-  session_id: &str,
-  data: &str,
-) {
-  if !(data.contains('\n') || data.contains('\r')) {
-    return;
-  }
-  let mut status_payload = None;
-  {
-    let mut guard = match sessions.lock() {
-      Ok(guard) => guard,
-      Err(_) => return,
-    };
-    if let Some(session) = guard.sessions.get_mut(session_id) {
-      if session.status != TerminalSessionStatus::Working {
-        session.status = TerminalSessionStatus::Working;
-        status_payload = Some(build_status_payload(session));
-      }
-      if let Ok(now) = now_millis() {
-        session.last_activity_at = Some(now);
-      }
-    }
-  }
-  if let Some(payload) = status_payload {
-    let _ = app.emit("terminal-status-change", payload);
-  }
-}
-
-impl InitialWriteState {
-  fn send_if_needed(&self, reason: &str) {
-    if self.sent.swap(true, Ordering::SeqCst) {
-      return;
-    }
-    if let Ok(mut writer) = self.writer.lock() {
-      let _ = writer.write_all(self.payload.as_bytes());
-      let _ = writer.flush();
-    }
-    log::info!("terminal initial write session_id={} reason={}", self.session_id, reason);
-    mark_session_working_on_input(&self.sessions, &self.app, &self.session_id, &self.payload);
-  }
-
-  fn schedule(self: &Arc<Self>, delay_ms: u64, reason: &'static str) {
-    let state = Arc::clone(self);
-    thread::spawn(move || {
-      if delay_ms > 0 {
-        thread::sleep(Duration::from_millis(delay_ms));
-      }
-      state.send_if_needed(reason);
-    });
-  }
-}
-
-fn spawn_pty_reader(
-  mut reader: Box<dyn Read + Send>,
-  app: AppHandle,
-  sessions: Arc<Mutex<SessionRegistry>>,
-  session_id: String,
-  initial_write: Option<Arc<InitialWriteState>>,
-  initial_write_delay_ms: u64,
-) {
-  thread::spawn(move || {
-    let mut buffer = [0u8; 8192];
-    let mut initial_scheduled = false;
-    loop {
-      let size = match reader.read(&mut buffer) {
-        Ok(0) => break,
-        Ok(size) => size,
-        Err(_) => break,
-      };
-      if let Some(state) = initial_write.as_ref() {
-        if !initial_scheduled {
-          initial_scheduled = true;
-          state.schedule(initial_write_delay_ms, "first-data");
-        }
-      }
-      let chunk = &buffer[..size];
-      let data = String::from_utf8_lossy(chunk).to_string();
-      let data_len = data.len();
-      let (output_payload, status_payload, first_output, buffer_len) = {
-        let mut guard = match sessions.lock() {
-          Ok(guard) => guard,
-          Err(_) => continue,
-        };
-        let (output_payload, status_payload, delta, first_output, buffer_len) = {
-          let session = match guard.sessions.get_mut(&session_id) {
-            Some(session) => session,
-            None => break,
-          };
-          let first_output = session.buffer.is_empty();
-          let delta = append_to_session_buffer(session, chunk);
-          let buffer_len = session.buffer.len();
-          let status_payload = if session.status != TerminalSessionStatus::Working {
-            session.status = TerminalSessionStatus::Working;
-            Some(build_status_payload(session))
-          } else {
-            None
-          };
-          if let Ok(now) = now_millis() {
-            session.last_activity_at = Some(now);
-          }
-          (
-            TerminalOutputPayload {
-              session_id: session_id.clone(),
-              data,
-            },
-            status_payload,
-            delta,
-            first_output,
-            buffer_len,
-          )
-        };
-        if delta > 0 {
-          guard.total_bytes = guard.total_bytes.saturating_add(delta as usize);
-        } else if delta < 0 {
-          guard.total_bytes = guard.total_bytes.saturating_sub((-delta) as usize);
-        }
-        (output_payload, status_payload, first_output, buffer_len)
-      };
-      let _ = app.emit("terminal-output", output_payload);
-      if let Some(payload) = status_payload {
-        let _ = app.emit("terminal-status-change", payload);
-      }
-      if first_output {
-        log::info!(
-          "terminal first output session_id={} data_len={} buffer_len={}",
-          session_id,
-          data_len,
-          buffer_len
-        );
-      }
-    }
-  });
-}
-
-fn spawn_exit_watcher(
-  mut child: Box<dyn Child + Send + Sync>,
-  app: AppHandle,
-  sessions: Arc<Mutex<SessionRegistry>>,
-  session_id: String,
-) {
-  thread::spawn(move || {
-    let (code, signal, reason) = match child.wait() {
-      Ok(status) => {
-        if let Some(signal) = status.signal() {
-          (None, Some(signal.to_string()), format!("signal {signal}"))
-        } else {
-          let code = i32::try_from(status.exit_code()).ok();
-          let reason = code.map(|value| format!("code {value}")).unwrap_or_else(|| "unknown".to_string());
-          (code, None, reason)
-        }
-      }
-      Err(err) => {
-        log::warn!("terminal child wait failed session_id={} err={}", session_id, err);
-        (None, Some("error".to_string()), "error".to_string())
-      }
-    };
-    let (exit_payload, status_payload) = {
-      let mut guard = match sessions.lock() {
-        Ok(guard) => guard,
-        Err(_) => return,
-      };
-      let session = match guard.sessions.get_mut(&session_id) {
-        Some(session) => session,
-        None => return,
-      };
-      session.active = false;
-      session.last_activity_at = None;
-      session.handle = None;
-      let status_payload = if session.status != TerminalSessionStatus::Offline {
-        session.status = TerminalSessionStatus::Offline;
-        Some(build_status_payload(session))
-      } else {
-        None
-      };
-      let notice = format!("\r\n\x1b[31m[Process exited with {reason}]\x1b[0m");
-      let delta = append_to_session_buffer(session, notice.as_bytes());
-      if delta > 0 {
-        guard.total_bytes = guard.total_bytes.saturating_add(delta as usize);
-      } else if delta < 0 {
-        guard.total_bytes = guard.total_bytes.saturating_sub((-delta) as usize);
-      }
-      (
-        TerminalExitPayload {
-          session_id: session_id.clone(),
-          code,
-          signal,
-        },
-        status_payload,
-      )
-    };
-    let _ = app.emit("terminal-exit", exit_payload);
-    if let Some(payload) = status_payload {
-      let _ = app.emit("terminal-status-change", payload);
-    }
-  });
-}
-
-fn shutdown_sessions(state: &TerminalManager) -> Result<(), String> {
-  let mut killers = Vec::new();
-  {
-    let mut guard = state
-      .sessions
-      .lock()
-      .map_err(|_| "terminal session lock poisoned".to_string())?;
-    for session in guard.sessions.values_mut() {
-      if let Some(handle) = session.handle.take() {
-        killers.push(handle.killer);
-      }
-      session.active = false;
-      session.last_activity_at = None;
-      if session.status != TerminalSessionStatus::Offline {
-        session.status = TerminalSessionStatus::Offline;
-      }
-    }
-  }
-  for mut killer in killers {
-    let _ = killer.kill();
-  }
-  Ok(())
-}
-
-fn build_status_payload(session: &TerminalSession) -> TerminalStatusPayload {
-  TerminalStatusPayload {
-    session_id: session.id.clone(),
-    status: session.status.as_str().to_string(),
-    member_id: session.member_id.clone(),
-    workspace_id: session.workspace_id.clone(),
-  }
-}
-
-fn append_to_session_buffer(session: &mut TerminalSession, data: &[u8]) -> isize {
-  if data.is_empty() {
-    return 0;
-  }
-  let before = session.buffer.len();
-  if data.len() >= SESSION_BUFFER_LIMIT_BYTES {
-    session.buffer.clear();
-    session.buffer.extend(&data[data.len() - SESSION_BUFFER_LIMIT_BYTES..]);
-  } else {
-    let next_len = before + data.len();
-    if next_len > SESSION_BUFFER_LIMIT_BYTES {
-      let overflow = next_len - SESSION_BUFFER_LIMIT_BYTES;
-      for _ in 0..overflow {
-        session.buffer.pop_front();
-      }
-    }
-    session.buffer.extend(data);
-  }
-  let after = session.buffer.len();
-  after as isize - before as isize
-}
-
-fn register_session(
-  state: &TerminalManager,
-  session_id: &str,
-  member_id: Option<String>,
-  workspace_id: Option<String>,
-  keep_alive: bool,
-  owner_window_label: Option<String>,
-  handle: TerminalHandle,
-) -> Result<TerminalStatusPayload, String> {
-  let mut guard = state
-    .sessions
-    .lock()
-    .map_err(|_| "terminal session lock poisoned".to_string())?;
-  if guard.total_bytes >= TOTAL_BUFFER_LIMIT_BYTES {
-    return Err("terminal buffer limit reached".to_string());
-  }
-  if guard.sessions.contains_key(session_id) {
-    return Err("terminal session already exists".to_string());
-  }
-  let session = TerminalSession {
-    id: session_id.to_string(),
-    status: TerminalSessionStatus::Online,
-    buffer: VecDeque::new(),
-    member_id: member_id.clone(),
-    workspace_id: workspace_id.clone(),
-    active: true,
-    last_activity_at: None,
-    handle: Some(handle),
-    keep_alive,
-    owner_window_label,
-  };
-  let payload = build_status_payload(&session);
-  guard.sessions.insert(session_id.to_string(), session);
-  Ok(payload)
-}
-
-fn ensure_session_active(state: &TerminalManager, session_id: &str) -> Result<(), String> {
-  let guard = state
-    .sessions
-    .lock()
-    .map_err(|_| "terminal session lock poisoned".to_string())?;
-  let session = guard
-    .sessions
-    .get(session_id)
-    .ok_or_else(|| "terminal session not found".to_string())?;
-  if session.active && session.handle.is_some() {
-    Ok(())
-  } else {
-    Err("terminal session is not active".to_string())
-  }
-}
-
-fn has_active_sessions(state: &TerminalManager) -> bool {
-  state
-    .sessions
-    .lock()
-    .map(|guard| {
-      guard
-        .sessions
-        .values()
-        .any(|session| session.active && session.handle.is_some())
-    })
-    .unwrap_or(false)
-}
-
-fn cleanup_ephemeral_sessions_for_window(
-  state: &TerminalManager,
-  window_label: &str,
-) -> Result<(), String> {
-  let mut killers = Vec::new();
-  {
-    let mut guard = state
-      .sessions
-      .lock()
-      .map_err(|_| "terminal session lock poisoned".to_string())?;
-    let targets: Vec<String> = guard
-      .sessions
-      .iter()
-      .filter(|(_, session)| {
-        !session.keep_alive && session.owner_window_label.as_deref() == Some(window_label)
-      })
-      .map(|(session_id, _)| session_id.clone())
-      .collect();
-    for session_id in targets {
-      if let Some(removed) = guard.sessions.remove(&session_id) {
-        guard.total_bytes = guard.total_bytes.saturating_sub(removed.buffer.len());
-        if let Some(handle) = removed.handle {
-          killers.push(handle.killer);
-        }
-      }
-    }
-  }
-  for mut killer in killers {
-    let _ = killer.kill();
-  }
-  Ok(())
-}
-
-fn spawn_status_poller(app: AppHandle, sessions: Arc<Mutex<SessionRegistry>>) {
-  thread::spawn(move || loop {
-    thread::sleep(Duration::from_millis(STATUS_POLL_INTERVAL_MS));
-    let now = match now_millis() {
-      Ok(value) => value,
-      Err(_) => continue,
-    };
-    let mut updates = Vec::new();
-    {
-      let mut guard = match sessions.lock() {
-        Ok(guard) => guard,
-        Err(_) => continue,
-      };
-      for session in guard.sessions.values_mut() {
-        if !session.active || session.status != TerminalSessionStatus::Working {
-          continue;
-        }
-        let last_activity = match session.last_activity_at {
-          Some(value) => value,
-          None => continue,
-        };
-        if now.saturating_sub(last_activity) >= WORKING_SILENCE_TIMEOUT_MS {
-          session.status = TerminalSessionStatus::Online;
-          updates.push(build_status_payload(session));
-        }
-      }
-    }
-    for payload in updates {
-      let _ = app.emit("terminal-status-change", payload);
-    }
-  });
-}
-
 fn next_terminal_label(reuse: bool) -> String {
   if reuse {
     TERMINAL_WINDOW_LABEL.to_string()
@@ -630,12 +177,16 @@ fn terminal_label_for_workspace(workspace_id: &str) -> String {
     reuse: Option<bool>,
     workspace_id: Option<String>,
     workspace_name: Option<String>,
+    workspace_path: Option<String>,
   ) -> Result<TerminalWindowOpenResult, String> {
   let reuse = reuse.unwrap_or(true);
   let workspace_id = workspace_id
     .map(|value| value.trim().to_string())
     .filter(|value| !value.is_empty());
   let workspace_name = workspace_name
+    .map(|value| value.trim().to_string())
+    .filter(|value| !value.is_empty());
+  let workspace_path = workspace_path
     .map(|value| value.trim().to_string())
     .filter(|value| !value.is_empty());
 
@@ -665,8 +216,14 @@ fn terminal_label_for_workspace(workspace_id: &str) -> String {
     .as_deref()
     .map(|name| format!("Terminal - {name}"))
     .unwrap_or_else(|| "Terminal".to_string());
+  let init_payload = json!({
+    "id": workspace_id.as_deref(),
+    "name": workspace_name.as_deref(),
+    "path": workspace_path.as_deref()
+  });
+  let init_script = format!("window.__NEXUS_VIEW__ = 'terminal'; window.__NEXUS_WORKSPACE__ = {init_payload};");
   let window_builder = WebviewWindowBuilder::new(&app, label.clone(), WebviewUrl::App("index.html".into()))
-    .initialization_script("window.__NEXUS_VIEW__ = 'terminal';")
+    .initialization_script(&init_script)
     .title(title)
     .inner_size(1200.0, 800.0)
     .min_inner_size(900.0, 600.0)
@@ -799,7 +356,7 @@ fn write_json_file(path: &Path, payload: serde_json::Value) -> Result<(), String
   Ok(())
 }
 
-fn resolve_app_data_path(app: &AppHandle, relative_path: &str) -> Result<PathBuf, String> {
+pub(crate) fn resolve_app_data_path(app: &AppHandle, relative_path: &str) -> Result<PathBuf, String> {
   let base = app
     .path()
     .app_data_dir()
@@ -1382,294 +939,31 @@ fn avatar_read(app: AppHandle, id: String) -> Result<AvatarContent, String> {
   Ok(AvatarContent { bytes, mime })
 }
 
-#[tauri::command]
-fn terminal_create(
-  app: AppHandle,
-  window: Window,
-  state: State<'_, TerminalManager>,
-  cols: Option<u16>,
-  rows: Option<u16>,
-  cwd: Option<String>,
-  member_id: Option<String>,
-  workspace_id: Option<String>,
-  keep_alive: Option<bool>,
-  session_id: Option<String>,
-  initial_data: Option<String>,
-) -> Result<String, String> {
-  let requested_id = session_id
-    .as_deref()
-    .map(|value| value.trim().to_string())
-    .filter(|value| !value.is_empty());
-  if let Some(value) = initial_data.as_deref() {
-    let sanitized = value.replace('\r', "\\r").replace('\n', "\\n");
-    log::info!("terminal_create initial_data={}", sanitized);
-  } else {
-    log::info!("terminal_create initial_data=<none>");
-  }
-  let session_id = requested_id
-    .unwrap_or_else(|| format!("term-{}", SESSION_COUNTER.fetch_add(1, Ordering::Relaxed)));
-  let keep_alive = keep_alive.unwrap_or(false);
-  let owner_window_label = if keep_alive {
-    None
-  } else {
-    Some(window.label().to_string())
-  };
-  {
-    let guard = state
-      .sessions
-      .lock()
-      .map_err(|_| "terminal session lock poisoned".to_string())?;
-    if guard.total_bytes >= TOTAL_BUFFER_LIMIT_BYTES {
-      return Err("terminal buffer limit reached".to_string());
-    }
-    if guard.sessions.contains_key(&session_id) {
-      return Err("terminal session already exists".to_string());
-    }
-  }
-
-  let cols = cols.unwrap_or(80).max(1);
-  let rows = rows.unwrap_or(24).max(1);
-  let pty_system = native_pty_system();
-  let pair = pty_system
-    .openpty(PtySize {
-      rows,
-      cols,
-      pixel_width: 0,
-      pixel_height: 0,
-    })
-    .map_err(|err| format!("failed to open pty: {err}"))?;
-
-  let (shell, args) = default_shell_spec();
-  let mut cmd = CommandBuilder::new(shell);
-  if !args.is_empty() {
-    cmd.args(args);
-  }
-  if let Some(dir) = cwd
-    .as_deref()
-    .map(str::trim)
-    .filter(|value| !value.is_empty())
-  {
-    cmd.cwd(dir);
-  }
-  if cmd.get_env("TERM").is_none() {
-    cmd.env("TERM", "xterm-256color");
-  }
-
-  let child = pair
-    .slave
-    .spawn_command(cmd)
-    .map_err(|err| format!("failed to spawn pty command: {err}"))?;
-  let master = pair.master;
-  let reader = master
-    .try_clone_reader()
-    .map_err(|err| format!("failed to open pty reader: {err}"))?;
-  let writer = master
-    .take_writer()
-    .map_err(|err| format!("failed to open pty writer: {err}"))?;
-  let writer = Arc::new(Mutex::new(writer));
-
-  let mut cleanup_killer = child.clone_killer();
-  let handle = TerminalHandle {
-    master,
-    writer: Arc::clone(&writer),
-    killer: cleanup_killer.clone_killer(),
-  };
-
-  let status_payload = match register_session(
-    &state,
-    &session_id,
-    member_id,
-    workspace_id,
-    keep_alive,
-    owner_window_label,
-    handle,
-  ) {
-    Ok(payload) => payload,
-    Err(err) => {
-      let _ = cleanup_killer.kill();
-      return Err(err);
-    }
-  };
-
-  let initial_payload = initial_data.filter(|data| !data.is_empty());
-  let (initial_timeout_ms, initial_delay_ms) = if cfg!(windows) { (1200, 300) } else { (500, 0) };
-  let initial_write = initial_payload.map(|payload| {
-    Arc::new(InitialWriteState {
-      session_id: session_id.clone(),
-      payload,
-      writer: Arc::clone(&writer),
-      sessions: state.sessions.clone(),
-      app: app.clone(),
-      sent: AtomicBool::new(false),
-    })
-  });
-  if let Some(state) = initial_write.as_ref() {
-    state.schedule(initial_timeout_ms, "timeout");
-  }
-
-  spawn_pty_reader(
-    reader,
-    app.clone(),
-    state.sessions.clone(),
-    session_id.clone(),
-    initial_write,
-    initial_delay_ms,
-  );
-  spawn_exit_watcher(child, app.clone(), state.sessions.clone(), session_id.clone());
-
-  let _ = app.emit("terminal-status-change", status_payload);
-  Ok(session_id)
-}
-
-#[tauri::command]
-fn terminal_write(
-  app: AppHandle,
-  state: State<'_, TerminalManager>,
-  session_id: String,
-  data: String,
-) -> Result<(), String> {
-  ensure_session_active(&state, &session_id)?;
-  let writer = {
-    let guard = state
-      .sessions
-      .lock()
-      .map_err(|_| "terminal session lock poisoned".to_string())?;
-    let session = guard
-      .sessions
-      .get(&session_id)
-      .ok_or_else(|| "terminal session not found".to_string())?;
-    let handle = session
-      .handle
-      .as_ref()
-      .ok_or_else(|| "terminal session handle missing".to_string())?;
-    Arc::clone(&handle.writer)
-  };
-  let mut writer = writer
-    .lock()
-    .map_err(|_| "terminal writer lock poisoned".to_string())?;
-  writer
-    .write_all(data.as_bytes())
-    .and_then(|_| writer.flush())
-    .map_err(|err| format!("failed to write to pty: {err}"))?;
-  drop(writer);
-  mark_session_working_on_input(&state.sessions, &app, &session_id, &data);
-  Ok(())
-}
-
-#[tauri::command]
-fn terminal_resize(
-  state: State<'_, TerminalManager>,
-  session_id: String,
-  cols: u16,
-  rows: u16,
-) -> Result<(), String> {
-  ensure_session_active(&state, &session_id)?;
-  let size = PtySize {
-    rows: rows.max(1),
-    cols: cols.max(1),
-    pixel_width: 0,
-    pixel_height: 0,
-  };
-  let guard = state
-    .sessions
-    .lock()
-    .map_err(|_| "terminal session lock poisoned".to_string())?;
-  let session = guard
-    .sessions
-    .get(&session_id)
-    .ok_or_else(|| "terminal session not found".to_string())?;
-  let handle = session
-    .handle
-    .as_ref()
-    .ok_or_else(|| "terminal session handle missing".to_string())?;
-  handle
-    .master
-    .resize(size)
-    .map_err(|err| format!("failed to resize pty: {err}"))
-}
-
-#[tauri::command]
-fn terminal_close(
-  app: AppHandle,
-  state: State<'_, TerminalManager>,
-  session_id: String,
-  preserve: Option<bool>,
-) -> Result<(), String> {
-  let preserve = preserve.unwrap_or(false);
-  let (status_payload, killer) = {
-    let mut guard = state
-      .sessions
-      .lock()
-      .map_err(|_| "terminal session lock poisoned".to_string())?;
-    let session = guard
-      .sessions
-      .get_mut(&session_id)
-      .ok_or_else(|| "terminal session not found".to_string())?;
-    let mut status_payload = None;
-    let mut killer = None;
-    if preserve {
-      session.active = false;
-      session.last_activity_at = None;
-      if session.status != TerminalSessionStatus::Offline {
-        session.status = TerminalSessionStatus::Offline;
-        status_payload = Some(build_status_payload(session));
-      }
-      if let Some(handle) = session.handle.take() {
-        killer = Some(handle.killer);
-      }
-    } else {
-      let removed = guard.sessions.remove(&session_id);
-      if let Some(removed) = removed {
-        guard.total_bytes = guard.total_bytes.saturating_sub(removed.buffer.len());
-        if let Some(handle) = removed.handle {
-          killer = Some(handle.killer);
-        }
-      }
-    }
-    (status_payload, killer)
-  };
-  if let Some(mut killer) = killer {
-    let _ = killer.kill();
-  }
-  if let Some(payload) = status_payload {
-    let _ = app.emit("terminal-status-change", payload);
-  }
-  Ok(())
-}
-
-#[tauri::command]
-fn get_session_history(state: State<'_, TerminalManager>, session_id: String) -> Result<String, String> {
-  let guard = state
-    .sessions
-    .lock()
-    .map_err(|_| "terminal session lock poisoned".to_string())?;
-  let session = guard
-    .sessions
-    .get(&session_id)
-    .ok_or_else(|| "terminal session not found".to_string())?;
-  let (first, second) = session.buffer.as_slices();
-  let mut bytes = Vec::with_capacity(first.len() + second.len());
-  bytes.extend_from_slice(first);
-  bytes.extend_from_slice(second);
-  Ok(String::from_utf8_lossy(&bytes).to_string())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
     .manage(TerminalManager::default())
+    .manage(ChatDbManager::default())
     .manage(WorkspaceRegistryLock::default())
     .manage(WorkspaceWindowRegistry::default())
     .setup(|app| {
       if cfg!(debug_assertions) {
+        let log_dir = resolve_log_dir();
         app.handle().plugin(
           tauri_plugin_log::Builder::default()
             .level(log::LevelFilter::Info)
+            .targets([
+              Target::new(TargetKind::Stdout),
+              Target::new(TargetKind::Folder {
+                path: log_dir,
+                file_name: Some("sidecar-debug".to_string()),
+              }),
+            ])
             .build(),
         )?;
       }
-      let sessions = app.state::<TerminalManager>().sessions.clone();
-      spawn_status_poller(app.handle().clone(), sessions);
+      let manager = app.state::<TerminalManager>();
+      spawn_status_poller(app.handle().clone(), &manager);
       Ok(())
     })
     .plugin(tauri_plugin_dialog::init())
@@ -1677,10 +971,28 @@ pub fn run() {
       terminal_open_window,
       workspace_selection_open_window,
       terminal_create,
+      terminal_attach,
       terminal_write,
+      terminal_ack,
+      terminal_set_active,
+      terminal_set_member_status,
+      terminal_dispatch,
       terminal_resize,
       terminal_close,
-      get_session_history,
+      chat_ulid_new,
+      chat_repair_messages,
+      chat_clear_all_messages,
+      chat_list_conversations,
+      chat_get_messages,
+      chat_mark_conversation_read_latest,
+      chat_send_message,
+      chat_create_group,
+      chat_ensure_direct,
+      chat_set_conversation_settings,
+      chat_rename_conversation,
+      chat_clear_conversation,
+      chat_delete_conversation,
+      chat_set_conversation_members,
       workspace_recent_list,
       workspace_open,
       workspace_clear_window,
@@ -1714,6 +1026,12 @@ pub fn run() {
         }
       }
     })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .build(tauri::generate_context!())
+    .expect("error while building tauri application")
+    .run(|app, event| {
+      if matches!(event, tauri::RunEvent::ExitRequested { .. }) {
+        let state = app.state::<TerminalManager>();
+        let _ = shutdown_sessions(&state);
+      }
+    });
 }

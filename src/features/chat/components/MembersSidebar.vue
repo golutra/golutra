@@ -1,6 +1,5 @@
 <template>
   <aside
-    ref="containerRef"
     :class="[
       'bg-panel/50 glass-panel border-l border-white/5 shrink-0 flex-col py-6 px-4 h-full',
       variant === 'drawer' ? 'flex w-72' : 'hidden xl:flex w-[260px]'
@@ -10,13 +9,11 @@
       <h2 class="text-white font-bold text-[15px]">{{ t('members.title') }}</h2>
       <button
         type="button"
-        @click="emit('toggle-invite')"
-        :class="[
-          'w-8 h-8 rounded-full flex items-center justify-center transition-colors shadow-glow ring-1 ring-white/20 relative z-50',
-          showInviteMenu ? 'bg-primary text-on-primary shadow-glow' : 'bg-panel/60 text-white/70 hover:bg-panel/80 hover:text-white'
-        ]"
+        class="w-9 h-9 rounded-xl bg-white/10 border border-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors flex items-center justify-center"
+        :title="t('friends.invite')"
+        @click="emit('open-invite')"
       >
-        <span class="material-symbols-outlined text-[20px]">person_add</span>
+        <span class="material-symbols-outlined text-[18px]">group_add</span>
       </button>
     </div>
 
@@ -87,22 +84,20 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, toRef } from 'vue';
 import { useI18n } from 'vue-i18n';
-import type { Member, MemberAction } from '../types';
+import type { Member, MemberActionPayload } from '../types';
 import MemberRow from './MemberRow.vue';
 
-const props = defineProps<{ members: Member[]; showInviteMenu: boolean; currentUserId?: string; variant?: 'sidebar' | 'drawer' }>();
-const emit = defineEmits<{ (e: 'toggle-invite'): void; (e: 'member-action', payload: { action: MemberAction; member: Member }): void }>();
+const props = defineProps<{ members: Member[]; currentUserId?: string; variant?: 'sidebar' | 'drawer' }>();
+const emit = defineEmits<{ (e: 'member-action', payload: MemberActionPayload): void; (e: 'open-invite'): void }>();
 
 const owners = computed(() => props.members.filter((member) => member.roleType === 'owner'));
 const admins = computed(() => props.members.filter((member) => member.roleType === 'admin'));
 const assistants = computed(() => props.members.filter((member) => member.roleType === 'assistant'));
 const membersGroup = computed(() => props.members.filter((member) => member.roleType === 'member'));
 
-const showInviteMenu = toRef(props, 'showInviteMenu');
 const currentUserId = toRef(props, 'currentUserId');
 const variant = computed(() => props.variant ?? 'sidebar');
 const openMenuId = ref<string | null>(null);
-const containerRef = ref<HTMLElement | null>(null);
 
 const { t } = useI18n();
 
@@ -110,22 +105,23 @@ const toggleMenu = (member: Member) => {
   openMenuId.value = openMenuId.value === member.id ? null : member.id;
 };
 
-const handleAction = (payload: { action: MemberAction; member: Member }) => {
+const handleAction = (payload: MemberActionPayload) => {
   openMenuId.value = null;
   emit('member-action', payload);
 };
 
 const handleClickOutside = (event: MouseEvent) => {
-  if (containerRef.value && !containerRef.value.contains(event.target as Node)) {
-    openMenuId.value = null;
-  }
+  if (!openMenuId.value) return;
+  const target = event.target as HTMLElement | null;
+  if (target?.closest('[data-member-menu]') || target?.closest('[data-member-menu-toggle]')) return;
+  openMenuId.value = null;
 };
 
 onMounted(() => {
-  document.addEventListener('mousedown', handleClickOutside);
+  document.addEventListener('click', handleClickOutside, true);
 });
 
 onBeforeUnmount(() => {
-  document.removeEventListener('mousedown', handleClickOutside);
+  document.removeEventListener('click', handleClickOutside, true);
 });
 </script>

@@ -1,4 +1,5 @@
 import { computed, ref } from 'vue';
+import { acceptHMRUpdate, defineStore } from 'pinia';
 
 export type AppTheme = 'dark' | 'light' | 'system';
 
@@ -37,8 +38,6 @@ const getStoredTheme = (): AppTheme => {
   return 'dark';
 };
 
-const theme = ref<AppTheme>(getStoredTheme());
-
 const getSystemTheme = (): 'dark' | 'light' => {
   if (typeof window === 'undefined' || !window.matchMedia) {
     return 'dark';
@@ -57,6 +56,7 @@ const applyTheme = (value: AppTheme) => {
 
 let mediaQuery: MediaQueryList | null = null;
 let mediaHandler: ((event: MediaQueryListEvent) => void) | null = null;
+let storageHandler: ((event: StorageEvent) => void) | null = null;
 
 const startSystemListener = () => {
   if (typeof window === 'undefined' || !window.matchMedia || mediaQuery) return;
@@ -72,30 +72,64 @@ const stopSystemListener = () => {
   mediaHandler = null;
 };
 
-export const initializeTheme = () => {
-  applyTheme(theme.value);
-  if (theme.value === 'system') {
+const syncTheme = (value: AppTheme) => {
+  applyTheme(value);
+  if (value === 'system') {
     startSystemListener();
+  } else {
+    stopSystemListener();
   }
 };
 
-export const useTheme = () => {
+const parseStoredTheme = (value: string | null): AppTheme | null => {
+  if (value === 'dark' || value === 'light' || value === 'system') {
+    return value;
+  }
+  return null;
+};
+
+const startStorageListener = (onTheme: (value: AppTheme) => void) => {
+  if (typeof window === 'undefined' || storageHandler) return;
+  storageHandler = (event) => {
+    if (event.storageArea !== window.localStorage) return;
+    if (event.key && event.key !== THEME_STORAGE_KEY) return;
+    const next = parseStoredTheme(event.newValue) ?? getStoredTheme();
+    onTheme(next);
+  };
+  window.addEventListener('storage', storageHandler);
+};
+
+export const applyInitialTheme = () => {
+  syncTheme(getStoredTheme());
+};
+
+export const useThemeStore = defineStore('theme', () => {
+  const themeRef = ref<AppTheme>(getStoredTheme());
+
   const setTheme = (next: AppTheme) => {
-    theme.value = next;
+    themeRef.value = next;
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(THEME_STORAGE_KEY, next);
     }
-    applyTheme(next);
-    if (next === 'system') {
-      startSystemListener();
-    } else {
-      stopSystemListener();
-    }
+    syncTheme(next);
+  };
+
+  const initializeTheme = () => {
+    syncTheme(themeRef.value);
+    startStorageListener((next) => {
+      themeRef.value = next;
+      syncTheme(next);
+    });
   };
 
   return {
-    theme: computed(() => theme.value),
+    theme: computed(() => themeRef.value),
     setTheme,
+    initializeTheme,
     themeOptions
   };
-};
+});
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useThemeStore, import.meta.hot));
+}

@@ -9,7 +9,11 @@
       </div>
 
       <div class="mb-6 text-center">
-        <img :src="member.avatar" class="w-20 h-20 rounded-full mx-auto mb-3 object-cover border-2 border-white/10" />
+        <AvatarBadge
+          :avatar="member.avatar"
+          :label="member.name"
+          class="w-20 h-20 rounded-full mx-auto mb-3 border-2 border-white/10"
+        />
         <p class="text-white/40 text-xs uppercase font-bold tracking-widest">{{ roleLabel }}</p>
       </div>
 
@@ -43,6 +47,7 @@
 import { computed, ref, watch, toRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Member } from '../types';
+import AvatarBadge from '@/shared/components/AvatarBadge.vue';
 
 const props = defineProps<{ member: Member; showRemove?: boolean }>();
 const emit = defineEmits<{ (e: 'close'): void; (e: 'save', id: string, name: string): void; (e: 'remove', id: string): void }>();

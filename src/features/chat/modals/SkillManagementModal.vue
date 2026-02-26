@@ -12,7 +12,7 @@
           </div>
           <div>
             <h2 class="text-xl font-bold text-white tracking-tight">{{ t('skills.management.title') }}</h2>
-            <p class="text-white/40 text-xs font-medium">{{ t('skills.management.subtitle', { channel: t('chat.channelDisplay') }) }}</p>
+            <p class="text-white/40 text-xs font-medium">{{ t('skills.management.subtitle', { channel: channelLabel }) }}</p>
           </div>
         </div>
         <div class="flex bg-panel/60 p-1 rounded-lg w-full max-w-md border border-white/5">
@@ -25,7 +25,7 @@
             ]"
           >
             {{ t('skills.management.tabs.current') }}
-            <span :class="['ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold', activeTab === 'current' ? 'bg-primary/20 text-primary' : 'bg-white/5 text-white/30']">3</span>
+            <span :class="['ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold', activeTab === 'current' ? 'bg-primary/20 text-primary' : 'bg-white/5 text-white/30']">{{ currentSkills.length }}</span>
           </button>
           <button
             type="button"
@@ -36,7 +36,7 @@
             ]"
           >
             {{ t('skills.management.tabs.library') }}
-            <span :class="['ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold', activeTab === 'library' ? 'bg-primary/20 text-primary' : 'bg-white/5 text-white/30']">12</span>
+            <span :class="['ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold', activeTab === 'library' ? 'bg-primary/20 text-primary' : 'bg-white/5 text-white/30']">{{ installedLibrarySkills.length }}</span>
           </button>
         </div>
       </div>
@@ -103,19 +103,23 @@
 
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <div
-              v-for="skill in librarySkills"
-              :key="skill.id"
-              class="p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 transition-all group hover:bg-white/[0.07] hover:shadow-lg hover:shadow-black/20 flex flex-col h-full relative overflow-hidden"
+            v-for="skill in installedLibrarySkills"
+            :key="skill.id"
+            class="p-5 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 transition-all group hover:bg-white/[0.07] hover:shadow-lg hover:shadow-black/20 flex flex-col h-full relative overflow-hidden"
             >
               <div :class="['absolute top-0 right-0 w-16 h-16 bg-gradient-to-br to-transparent rounded-bl-3xl -mr-4 -mt-4', skill.gradient]"></div>
               <div class="flex justify-between items-start mb-4 relative z-10">
                 <div :class="['w-12 h-12 rounded-xl flex items-center justify-center ring-1 shadow-glow', skill.bg, skill.color, skill.ring]">
                   <span class="material-symbols-outlined text-2xl">{{ skill.icon }}</span>
                 </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input v-model="skill.checked" class="sr-only peer" type="checkbox" />
-                  <div class="w-9 h-5 bg-panel-strong/80 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border/40 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary shadow-inner"></div>
-                </label>
+                <button
+                  type="button"
+                  class="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 flex items-center justify-center transition-colors"
+                  @click="handleRemoveSkill(skill.id)"
+                  :aria-label="t('common.remove')"
+                >
+                  <span class="material-symbols-outlined text-[18px]">delete</span>
+                </button>
               </div>
               <h3 class="text-white font-semibold text-base mb-1 tracking-tight">{{ t(skill.nameKey) }}</h3>
               <p class="text-white/40 text-xs leading-relaxed mb-4 flex-grow">{{ t(skill.descKey) }}</p>
@@ -135,7 +139,11 @@
           </div>
 
           <div class="mt-10 flex justify-center pb-2">
-            <button class="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-primary/10 to-blue-500/10 border border-primary/20 hover:border-primary/40 text-white font-semibold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all" type="button">
+            <button
+              class="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-primary/10 to-blue-500/10 border border-primary/20 hover:border-primary/40 text-white font-semibold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
+              type="button"
+              @click="handleBrowseStore"
+            >
               <span class="material-symbols-outlined text-lg">storefront</span>
               {{ t('skills.library.browseShop') }}
             </button>
@@ -164,42 +172,41 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
+import { useWorkspaceStore } from '@/features/workspace/workspaceStore';
+import { useProjectStore } from '@/features/workspace/projectStore';
+import { useGlobalStore } from '@/features/global/globalStore';
 import { createLibrarySkills } from '@/features/skills/skillLibrary';
+import { useNavigationStore } from '@/stores/navigationStore';
 
 const emit = defineEmits<{ (e: 'close'): void; (e: 'configure'): void }>();
 const activeTab = ref<'current' | 'library'>('current');
 
 const { t } = useI18n();
 
-const currentSkills = [
-  {
-    nameKey: 'skills.items.designSystemCore.name',
-    icon: 'palette',
-    color: 'text-blue-400',
-    bg: 'bg-blue-500/10',
-    ring: 'ring-blue-500/20',
-    ver: 'v2.4.0',
-    tags: ['skills.tags.typography', 'skills.tags.colorPalette', 'skills.tags.components']
-  },
-  {
-    nameKey: 'skills.items.uxResearchPatterns.name',
-    icon: 'psychology',
-    color: 'text-purple-400',
-    bg: 'bg-purple-500/10',
-    ring: 'ring-purple-500/20',
-    ver: 'v1.1.2'
-  },
-  {
-    nameKey: 'skills.items.a11yGuidelines.name',
-    icon: 'accessibility_new',
-    color: 'text-orange-400',
-    bg: 'bg-orange-500/10',
-    ring: 'ring-orange-500/20',
-    ver: 'v3.0.0'
-  }
-];
+const workspaceStore = useWorkspaceStore();
+const projectStore = useProjectStore();
+const { defaultChannelName } = storeToRefs(workspaceStore);
+const { currentSkills } = storeToRefs(projectStore);
+const { installedSkillIds, removeSkill } = useGlobalStore();
+const navigationStore = useNavigationStore();
+const { setActiveTab, setSkillStoreTab } = navigationStore;
+const channelLabel = computed(() => `#${defaultChannelName.value}`);
 
 const librarySkills = ref(createLibrarySkills());
+const installedLibrarySkills = computed(() =>
+  librarySkills.value.filter((skill) => installedSkillIds.value.includes(skill.id))
+);
+
+const handleRemoveSkill = (id: number) => {
+  void removeSkill(id);
+};
+
+const handleBrowseStore = () => {
+  setSkillStoreTab('store');
+  setActiveTab('store');
+  emit('close');
+};
 </script>
