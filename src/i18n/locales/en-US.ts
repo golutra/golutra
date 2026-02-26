@@ -1,21 +1,40 @@
 export default {
   app: {
-    name: 'Nexus Dashboard'
+    name: 'golutra',
+    windowControls: {
+      minimize: 'Minimize',
+      maximize: 'Maximize',
+      close: 'Close'
+    }
   },
   nav: {
     chat: 'Chat & Modals',
+    terminal: 'Terminal',
     workspaces: 'Workspaces',
     store: 'Skill Store',
     plugins: 'Plugins',
     settings: 'Settings'
+  },
+  terminal: {
+    title: 'Terminal',
+    subtitle: 'Run multiple shells in one workspace.',
+    newTab: 'New Tab',
+    emptyTabs: 'No terminals yet.',
+    emptyTitle: 'No active terminals',
+    emptySubtitle: 'Create a new terminal tab to get started.',
+    unavailableTitle: 'Terminal unavailable',
+    unavailableSubtitle: 'Open this view inside the Tauri desktop app to use terminals.',
+    errorTitle: 'Terminal failed to start',
+    errorSubtitle: 'Check the desktop runtime and try again.',
+    resourceLimit: 'System resources are low. Close some background terminals and try again.'
   },
   common: {
     userAvatarAlt: 'User',
     remove: 'Remove'
   },
   chat: {
-    channelName: 'design-critique',
-    channelDisplay: '#design-critique',
+    channelName: 'general',
+    channelDisplay: '#general',
     channelDescription: '',
     directMessageDescription: 'Direct message with {name}',
     header: {
@@ -35,7 +54,7 @@ export default {
       }
     },
     sidebar: {
-      workspaceName: 'Frontend Squad',
+      workspaceName: 'Workspace',
       channels: 'Channels',
       directMessages: 'Direct Messages',
       channelList: {
@@ -97,7 +116,7 @@ export default {
     },
     actions: {
       sendMessage: 'Send Message',
-      mention: '@ Mention',
+      mention: 'Mention',
       rename: 'Rename'
     },
     manage: {
@@ -151,7 +170,8 @@ export default {
       title: 'Invite as Assistant',
       subtitle: 'Select an AI model to join the workspace',
       instances: 'Number of Instances',
-      unlimitedAccess: 'Unlimited Access',
+      instanceLimit: 'Max {count} instances',
+      unlimitedAccess: 'Unlimited Mode',
       unlimitedAccessDesc: 'Bypass usage limits',
       sandboxed: 'Sandboxed environment',
       send: 'Send Invitation',
@@ -191,7 +211,7 @@ export default {
       subtitle: 'Configure active skills for {channel}',
       tabs: {
         current: 'Current Skills',
-        library: 'My Skills Library'
+        library: 'My Skills'
       }
     },
     current: {
@@ -288,6 +308,8 @@ export default {
     searchPlaceholder: 'Search plugins, integrations, and themes...',
     browseStore: 'Browse Store',
     myPlugins: 'My Plugins',
+    importTitle: 'Import Plugin',
+    importSubtitle: 'From URL or Local File',
     categories: {
       all: 'All Plugins',
       productivity: 'Productivity',
@@ -338,7 +360,7 @@ export default {
     searchPlaceholder: 'Search skill folders, templates, and toolkits...',
     tabs: {
       store: 'Store',
-      installed: 'Installed'
+      installed: 'My Skills'
     },
     filters: {
       all: 'All Skills',
@@ -351,7 +373,7 @@ export default {
     syncPlaceholder: 'Paste sync URL...',
     syncNow: 'Sync now',
     installFolder: 'Install Folder',
-    installed: 'Installed',
+    installed: 'My Skills',
     skills: {
       automation: {
         title: 'Automation Skill',
@@ -380,67 +402,92 @@ export default {
     }
   },
   workspace: {
-    createTitle: 'Create New Team',
-    createSubtitle: 'Initialize a fresh collaborative environment',
+    openTitle: 'Open Folder',
+    openSubtitle: 'Pick a folder to start or resume a workspace',
     recentTitle: 'Recent Workspaces',
     more: 'More',
-    searchPlaceholder: 'Search teams...',
-    menu: {
-      settings: 'Workspace Settings',
-      invite: 'Invite Members',
-      copyId: 'Copy ID',
-      leave: 'Leave Workspace'
-    },
-    activeLabel: 'ACTIVE',
-    times: {
-      twoMinutes: '2m ago',
-      fourHours: '4h ago',
-      oneDay: '1d ago'
-    },
-    list: {
-      frontend: {
-        title: 'Frontend Squad',
-        desc: 'Main monorepo for the consumer-facing React application.'
-      },
-      mobile: {
-        title: 'Mobile API',
-        desc: 'GraphQL gateway and microservices for iOS/Android apps.'
-      },
-      infrastructure: {
-        title: 'Infrastructure',
-        desc: 'Terraform scripts and Kubernetes configuration files.'
-      }
-    },
-    recent: {
-      designSystems: 'Design Systems',
-      marketingTeam: 'Marketing Team',
-      backendCore: 'Backend Core'
-    }
+    searchPlaceholder: 'Search folders...',
+    emptyTitle: 'No recent workspaces',
+    emptySubtitle: 'Open a folder to start your first workspace.',
+    openAction: 'Open',
+    noResults: 'No matching workspaces',
+    openErrorTitle: 'Unable to open workspace',
+    readOnlyTitle: 'Workspace is read-only',
+    readOnlySubtitle: 'This folder is not writable. Project metadata will not be saved.',
+    registryMismatchTitle: 'Workspace location changed',
+    registryMismatchMessage: 'The workspace location has changed.\nPrevious path: {oldPath}\nCurrent path: {newPath}\nDid you move the original project or copy a new duplicate?',
+    registryMismatchMoved: 'Moved',
+    registryMismatchCopied: 'Copied'
   },
   settings: {
     title: 'Settings',
     preferences: 'Preferences',
     preferencesSubtitle: 'Customize your account, notifications, and workspace preferences.',
     accountSubtitle: 'Manage your profile, presence, and contact details.',
+    avatarTitle: 'Avatar',
+    avatarSubtitle: 'Pick a style or upload your own.',
+    avatarUpload: 'Upload Image',
+    avatarReset: 'Use Style',
+    avatarHint: 'PNG/JPG/WEBP up to 2MB.',
+    avatarUploads: 'Uploads',
+    avatarErrors: {
+      invalidType: 'Please upload an image file.',
+      tooLarge: 'Image is larger than 2MB.',
+      storageFailed: 'Unable to save avatar.'
+    },
+    avatarOptions: {
+      orbit: 'Orbit',
+      ember: 'Ember',
+      mint: 'Mint',
+      canyon: 'Canyon',
+      storm: 'Storm'
+    },
     displayName: 'Display Name',
     displayNamePlaceholder: 'Enter your display name',
     emailAddress: 'Email Address',
-    emailPlaceholder: 'name@example.com',
+    emailPlaceholder: 'name{at}example.com',
+    changeEmail: 'Change Email',
     jobTitle: 'Job Title',
     jobTitlePlaceholder: 'e.g. Product Designer',
     timeZone: 'Time Zone',
+    timeZones: {
+      utc: 'UTC',
+      pacificMidway: 'Pacific/Midway',
+      pacificHonolulu: 'Pacific/Honolulu',
+      americaAnchorage: 'America/Anchorage',
+      americaLosAngeles: 'America/Los_Angeles',
+      americaDenver: 'America/Denver',
+      americaChicago: 'America/Chicago',
+      americaNewYork: 'America/New_York',
+      americaHalifax: 'America/Halifax',
+      americaSaoPaulo: 'America/Sao_Paulo',
+      atlanticAzores: 'Atlantic/Azores',
+      europeLondon: 'Europe/London',
+      europeParis: 'Europe/Paris',
+      europeHelsinki: 'Europe/Helsinki',
+      europeMoscow: 'Europe/Moscow',
+      asiaDubai: 'Asia/Dubai',
+      asiaKarachi: 'Asia/Karachi',
+      asiaDhaka: 'Asia/Dhaka',
+      asiaBangkok: 'Asia/Bangkok',
+      asiaShanghai: 'Asia/Shanghai',
+      asiaTokyo: 'Asia/Tokyo',
+      australiaSydney: 'Australia/Sydney',
+      pacificNoumea: 'Pacific/Noumea',
+      pacificAuckland: 'Pacific/Auckland'
+    },
     status: 'Status',
     statusMessage: 'Status Message',
     statusMessagePlaceholder: 'Share what you are working on',
     statusOptions: {
       online: 'Online',
-      away: 'Away',
-      dnd: 'Do Not Disturb'
+      working: 'Working',
+      dnd: 'Do Not Disturb',
+      offline: 'Offline'
     },
     language: 'Language',
     languageDefault: 'Default',
     changesApply: 'Changes apply after restart.',
-    spellCheck: 'Spell Check',
     defaultMember: 'Default Member',
     selectMember: 'Select Member',
     refreshList: 'Refresh List',
@@ -454,12 +501,13 @@ export default {
     members: 'Members',
     notifications: 'Notifications',
     keybinds: 'Keybinds',
+    createTeam: 'Create Team',
     leaveTeam: 'Leave Team',
     logOut: 'Log Out',
     memberName: 'Member Name',
     memberNamePlaceholder: 'Enter member label',
     commandInput: 'Command Line Input',
-    commandPlaceholder: 'e.g. /usr/local/bin/my-cli',
+    commandPlaceholder: 'CLI startup command, e.g. gemini',
     confirm: 'Confirm',
     notificationsSubtitle: 'Choose when and how you want to be notified.',
     notificationOptions: {
