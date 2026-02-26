@@ -1,6 +1,6 @@
 # Security Policy
 
-If you discover a security vulnerability, please report it privately and do not open a public issue.
+If it’s urgent and hasn’t been noticed on GitHub, you can report it by email.
 
 ## Reporting
 - Email: golutra@hotmail.com

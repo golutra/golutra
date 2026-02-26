@@ -81,13 +81,8 @@ This software is independently developed and maintained by [seekskyworld](https:
 
 ### Open Source Status
 
-This project is now open source, and related code will be organized and opened in phases.
-
-To protect my privacy, any parts involving server keys, account configuration, or other sensitive information will be sanitized and refactored before being gradually published to the repository.
-
-I’m currently refactoring the architecture and separating modules that contain server keys, configs, and test data, which require careful review.
-I will open the full source as promised, but it needs time — this is two months of work, with many late nights spent on the architecture and details.
-So far the project has made no revenue; it’s driven purely by passion. Please allow a bit more time to open it properly.
+The source code is now open. Any parts involving server keys, account configuration, test data, or other sensitive information will be sanitized and refactored before being gradually published to the repository.
+This is two months of work, with many late nights spent on the architecture and details. It’s all to make the experience better; suggestions and bugs can be submitted on GitHub.
 
 ### What’s Next
 
@@ -226,11 +221,8 @@ golutra 是新一代多智能体工作空间，把你现有的 CLI 工具升级�
 
 ### 开源状态
 
-项目现已开源，并将持续分阶段整理与开放相关代码。  
-为保障自己的隐私，涉及服务器密钥、账号配置、测试数据及其他敏感信息的部分，会先完成脱敏与重构，再逐步同步到仓库。  
-我目前正在拆分架构与整理代码，这些模块需要逐一核对与隔离。  
-我会按承诺完整开源，但这确实需要时间——这是我两个月的心血，很多个夜晚都在打磨架构与细节。  
-到目前为止项目没有任何收入，全凭热爱推进。请给我一点时间，把它更稳妥、更完整地开放出来。
+项目源码已经开源，涉及服务器密钥、账号配置、测试数据及其他敏感信息的部分，会先完成脱敏与重构，再逐步同步到仓库。  
+这是我两个月的心血，很多个夜晚都在打磨架构与细节。都是为了体验能更好，有相关建议和 bug 可以在 GitHub 提交。
 
 ### 后续发展
 
