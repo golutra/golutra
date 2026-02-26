@@ -4,22 +4,23 @@
 
 ### Tagline
 
-One person. One AI squad.
+**golutra — One Person. One AI Squad.**
 
 ### What is golutra
 
-`golutra` is a next-generation multi-agent collaboration workspace.  
-It goes beyond traditional IDE extensions and single-chat AI tools by orchestrating multiple agents to execute complex tasks in parallel.
-Built with Vue 3 + Rust as a Tauri desktop application, `golutra` currently supports Windows and macOS.
+golutra is a next-generation multi-agent workspace that transforms your existing CLI tools into a unified AI collaboration hub. No project migration. No command relearning. No terminal switching. Just parallel execution, automated orchestration, and real-time result tracking.
 
-### Core Value
+Click agent avatars to inspect logs, inject prompts directly into terminal streams, or monitor execution while your AI team runs silently in the background. Built with Vue 3 + Rust as a Tauri desktop app for Windows and macOS, golutra upgrades “one person + one editor” into “one person + an AI squad.” It replaces single-threaded, manual context switching with coordinated, multi-agent automation.
 
-- Unlimited multi-agent collaboration: automatically break down complex tasks and execute in parallel.
-- Silent background execution: agents keep running even when you leave the main view.
-- Terminal show/hide on demand: switch between high-level control and terminal details instantly.
-- Avatar-based inspection: click each agent avatar to view terminal status, logs, and outputs.
-- Automatic orchestration: from analysis and generation to strategy and deployment.
-- Personal AI team: move from "one person + one editor" to "one person + an AI squad."
+### Key Highlights
+
+- Unlimited multi-agent parallel execution
+- Automated orchestration from analysis to deployment
+- CLI compatibility: Claude, Gemini, Codex, OpenCode, Qwen
+- Stealth terminal with context-aware intelligence
+- Visual interface combined with command-line power
+
+Keep your familiar commands. golutra wires them into a complete engineering loop.
 
 ### CLI Compatibility Layer
 
@@ -84,6 +85,25 @@ This project is now open source, and related code will be organized and opened i
 
 To protect security and privacy, any parts involving server keys, account configuration, or other sensitive information will be sanitized and refactored before being gradually published to the repository.
 
+### What’s Next
+
+golutra is only at its beginning.
+
+The next evolution introduces a refactored OpenClaw as a true commander layer — a central AI coordinator capable of automatically creating agents, assigning roles, and generating structured collaboration channels based on task complexity. Instead of manually organizing workflows, golutra will dynamically assemble self-structured AI teams on demand.
+
+Upcoming capabilities include:
+
+- Mobile Remote Control — monitor agents, review logs, intervene, and redirect tasks directly from your phone.
+- Auto Agent Builder — quickly generate specialized agents for specific industries or scenarios (e.g., refactoring, compliance audits, trading systems, DevOps automation).
+- Unified Agent Interface — a standardized agent protocol for seamless integration into the orchestration layer.
+- Deep Memory Layer — persistent, shared long-horizon memory across agents to strengthen knowledge accumulation and cross-task reasoning.
+
+The mission is clear:
+evolve from multi-agent execution to self-organizing AI teams, improving overall collaboration efficiency by 30% or more through better coordination, specialization, and memory.
+
+One person. One AI squad.  
+Evolving from an AI squad into an organized, coordinated AI team.
+
 ### Usage License
 
 - Using `golutra` as a tool to build commercial software is allowed.
@@ -126,22 +146,23 @@ If the app still cannot be opened, please contact the publisher for support.
 
 ### 标语
 
-一个人，拥有一个 AI 军团。
+**golutra — 一个人，一个 AI 军团。**
 
 ### 什么是 golutra
 
-`golutra` 是新一代多 Agent 协同工作软件。  
-它不是传统 IDE 的插件增强，也不是单一 AI 对话工具，而是把复杂任务交给多个智能 Agent 并行执行的系统级工作台。
-`golutra` 基于 Vue 3 + Rust 开发，采用 Tauri 桌面应用架构，当前支持 Windows 和 macOS。
+golutra 是新一代多智能体工作空间，把你现有的 CLI 工具升级为统一的 AI 协作中枢。不用迁移项目，不用重学命令，不用切换终端，只需并行执行、自动编排与实时结果追踪。
 
-### 核心价值
+你可以点击 Agent 头像查看日志，在终端流中直接注入提示词，或在 AI 团队后台运行时实时监控执行。golutra 由 Vue 3 + Rust 构建，采用 Tauri 桌面架构，支持 Windows 和 macOS，将“一个人 + 一个编辑器”升级为“一个人 + AI 军团”，用多智能体协作替代单线程的人工上下文切换。
 
-- 无限 Agent 协作：自动拆解复杂任务，多个 Agent 并行推进。
-- 后台静默运行：离开当前界面时，Agent 仍可持续执行任务。
-- 终端随时显隐：主界面与终端状态快速切换，专注与透明兼得。
-- 头像即入口：点击 Agent 头像即可查看各自终端状态、日志与结果输出。
-- 自动编排流程：从分析、生成、策略到执行部署，形成完整闭环。
-- 个人 AI 团队：从“一个人 + 一个编辑器”升级为“一个人 + 一支 AI 军团”。
+### 核心亮点
+
+- 多智能体并行执行（不限数量）
+- 从分析到部署的自动编排
+- CLI 兼容：Claude、Gemini、Codex、OpenCode、Qwen
+- 隐形终端与上下文感知智能
+- 可视化界面结合命令行能力
+
+保留你熟悉的命令，golutra 将其串联成完整工程闭环。
 
 ### CLI 兼容生态
 
@@ -204,6 +225,24 @@ If the app still cannot be opened, please contact the publisher for support.
 项目现已开源，并将持续分阶段整理与开放相关代码。
 
 为保障安全与隐私，涉及服务器密钥、账号配置及其他敏感信息的部分会先完成脱敏与重构，再逐步同步到仓库。
+
+### 后续发展
+
+golutra 仍处于早期阶段。
+
+下一阶段将重构 OpenClaw 作为真正的指挥层 —— 一个能自动创建 Agent、分配角色，并根据任务复杂度生成协作频道的中心协调器。你无需手动组织工作流，golutra 将按需组建自组织 AI 团队。
+
+即将加入的能力包括：
+
+- 移动端远程操控 —— 在手机上监控 Agent、查看日志、干预与重定向任务。
+- 自动 Agent 构建 —— 针对行业/场景快速生成专用 Agent（如重构、合规审计、交易系统、DevOps 自动化）。
+- 统一 Agent 接口 —— 标准化协议，便于无缝接入编排层。
+- 深度记忆层 —— 跨 Agent 的长期共享记忆，强化知识沉淀与跨任务推理。
+
+目标明确：从多智能体执行进化为自组织 AI 团队，通过更好的协调、分工与记忆，将整体协作效率提升 30% 以上。
+
+一个人，一个 AI 军团。  
+从 AI 军团进一步进化为有组织协同能力的 AI 团队。
 
 ### 使用许可
 
