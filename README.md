@@ -191,7 +191,6 @@ If the app still cannot be opened, please contact the publisher for support.
 
 商务邮箱: [golutra&#64;hotmail.com](mailto:golutra%40hotmail.com)  
 官网: [https://www.golutra.com/](https://www.golutra.com/)  
-问题反馈企鹅群: 252090140
 安全策略: 详见 [SECURITY.md](SECURITY.md)
 
 ### 作者
