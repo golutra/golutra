@@ -70,6 +70,7 @@ This repository is for source code storage and releases.
 
 Business Email: [golutra&#64;hotmail.com](mailto:golutra%40hotmail.com)  
 Official Website: [https://www.golutra.com/](https://www.golutra.com/)  
+Video: <https://youtu.be/DKKracLotg8>  
 Discord: [https://discord.gg/QyNVu56mpY](https://discord.gg/QyNVu56mpY)
 Security Policy: See [SECURITY.md](SECURITY.md)
 
@@ -191,6 +192,7 @@ If the app still cannot be opened, please contact the publisher for support.
 
 商务邮箱: [golutra&#64;hotmail.com](mailto:golutra%40hotmail.com)  
 官网: [https://www.golutra.com/](https://www.golutra.com/)  
+视频地址: <https://www.bilibili.com/video/BV1qcfhBFEpP/?spm_id_from=333.1387.homepage.video_card.click>  
 安全策略: 详见 [SECURITY.md](SECURITY.md)
 
 ### 作者
