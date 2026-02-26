@@ -1,21 +1,40 @@
 export default {
   app: {
-    name: 'Nexus Dashboard'
+    name: 'golutra',
+    windowControls: {
+      minimize: '最小化',
+      maximize: '最大化',
+      close: '关闭'
+    }
   },
   nav: {
     chat: '聊天与弹窗',
+    terminal: '终端',
     workspaces: '工作区',
     store: '技能商店',
     plugins: '插件',
     settings: '设置'
+  },
+  terminal: {
+    title: '终端',
+    subtitle: '在一个工作区内运行多个终端会话。',
+    newTab: '新建标签',
+    emptyTabs: '暂无终端。',
+    emptyTitle: '没有活动终端',
+    emptySubtitle: '新建一个终端标签开始。',
+    unavailableTitle: '终端不可用',
+    unavailableSubtitle: '请在 Tauri 桌面应用中打开该页面。',
+    errorTitle: '终端启动失败',
+    errorSubtitle: '请检查桌面运行时后重试。',
+    resourceLimit: '系统资源不足，无法启动新终端，请先关闭部分后台任务。'
   },
   common: {
     userAvatarAlt: '用户',
     remove: '删除'
   },
   chat: {
-    channelName: 'design-critique',
-    channelDisplay: '#design-critique',
+    channelName: 'general',
+    channelDisplay: '#general',
     channelDescription: '',
     directMessageDescription: '与 {name} 的私信',
     header: {
@@ -35,7 +54,7 @@ export default {
       }
     },
     sidebar: {
-      workspaceName: '前端小队',
+      workspaceName: '工作区',
       channels: '频道',
       directMessages: '私信',
       channelList: {
@@ -97,7 +116,7 @@ export default {
     },
     actions: {
       sendMessage: '发送消息',
-      mention: '@',
+      mention: '提及',
       rename: '更改名称'
     },
     manage: {
@@ -151,7 +170,8 @@ export default {
       title: '以助手身份邀请',
       subtitle: '选择要加入工作区的 AI 模型',
       instances: '实例数量',
-      unlimitedAccess: '无限访问',
+      instanceLimit: '最多 {count} 个实例',
+      unlimitedAccess: '无限制模式',
       unlimitedAccessDesc: '绕过使用限制',
       sandboxed: '沙盒环境',
       send: '发送邀请',
@@ -191,7 +211,7 @@ export default {
       subtitle: '为 {channel} 配置已启用技能',
       tabs: {
         current: '当前技能',
-        library: '我的技能库'
+        library: '我的技能'
       }
     },
     current: {
@@ -288,6 +308,8 @@ export default {
     searchPlaceholder: '搜索插件、集成和主题...',
     browseStore: '浏览商店',
     myPlugins: '我的插件',
+    importTitle: '导入插件',
+    importSubtitle: '从 URL 或本地文件',
     categories: {
       all: '全部插件',
       productivity: '效率',
@@ -338,7 +360,7 @@ export default {
     searchPlaceholder: '搜索技能文件夹、模板和工具包...',
     tabs: {
       store: '商店',
-      installed: '已安装'
+      installed: '我的技能'
     },
     filters: {
       all: '全部技能',
@@ -351,7 +373,7 @@ export default {
     syncPlaceholder: '粘贴同步 URL...',
     syncNow: '立即同步',
     installFolder: '安装文件夹',
-    installed: '已安装',
+    installed: '我的技能',
     skills: {
       automation: {
         title: '自动化技能',
@@ -380,67 +402,92 @@ export default {
     }
   },
   workspace: {
-    createTitle: '创建新团队',
-    createSubtitle: '初始化全新的协作环境',
+    openTitle: '打开文件夹',
+    openSubtitle: '选择一个文件夹开始或恢复工作区',
     recentTitle: '最近的工作区',
     more: '更多',
-    searchPlaceholder: '搜索团队...',
-    menu: {
-      settings: '工作区设置',
-      invite: '邀请成员',
-      copyId: '复制 ID',
-      leave: '退出工作区'
-    },
-    activeLabel: '活跃',
-    times: {
-      twoMinutes: '2 分钟前',
-      fourHours: '4 小时前',
-      oneDay: '1 天前'
-    },
-    list: {
-      frontend: {
-        title: '前端小队',
-        desc: '面向用户的 React 应用主仓库。'
-      },
-      mobile: {
-        title: '移动端 API',
-        desc: '面向 iOS/Android 的 GraphQL 网关与微服务。'
-      },
-      infrastructure: {
-        title: '基础设施',
-        desc: 'Terraform 脚本与 Kubernetes 配置文件。'
-      }
-    },
-    recent: {
-      designSystems: '设计系统',
-      marketingTeam: '市场团队',
-      backendCore: '后端核心'
-    }
+    searchPlaceholder: '搜索文件夹...',
+    emptyTitle: '暂无最近工作区',
+    emptySubtitle: '打开文件夹以创建你的第一个工作区。',
+    openAction: '打开',
+    noResults: '未找到匹配的工作区',
+    openErrorTitle: '无法打开工作区',
+    readOnlyTitle: '工作区只读',
+    readOnlySubtitle: '当前文件夹不可写，项目数据不会保存。',
+    registryMismatchTitle: '工作区位置变化',
+    registryMismatchMessage: '检测到项目位置发生变化。\n旧路径: {oldPath}\n当前路径: {newPath}\n你是移动了原项目，还是复制了一个新副本？',
+    registryMismatchMoved: '移动了',
+    registryMismatchCopied: '复制副本'
   },
   settings: {
     title: '设置',
     preferences: '偏好设置',
     preferencesSubtitle: '自定义账号、通知与工作区偏好。',
     accountSubtitle: '管理你的资料、状态与联系方式。',
+    avatarTitle: '头像',
+    avatarSubtitle: '选择样式或上传图片。',
+    avatarUpload: '上传图片',
+    avatarReset: '恢复样式',
+    avatarHint: '支持 PNG/JPG/WEBP，最大 2MB。',
+    avatarUploads: '已上传',
+    avatarErrors: {
+      invalidType: '请上传图片文件。',
+      tooLarge: '图片超过 2MB。',
+      storageFailed: '头像存储失败。'
+    },
+    avatarOptions: {
+      orbit: '轨道',
+      ember: '余烬',
+      mint: '薄荷',
+      canyon: '峡谷',
+      storm: '风暴'
+    },
     displayName: '显示名称',
     displayNamePlaceholder: '输入显示名称',
     emailAddress: '邮箱地址',
-    emailPlaceholder: 'name@example.com',
+    emailPlaceholder: 'name{at}example.com',
+    changeEmail: '更改邮箱',
     jobTitle: '职位',
     jobTitlePlaceholder: '例如 产品设计师',
     timeZone: '时区',
+    timeZones: {
+      utc: 'UTC协调世界时',
+      pacificMidway: '太平洋/中途岛',
+      pacificHonolulu: '太平洋/檀香山',
+      americaAnchorage: '美洲/安克雷奇',
+      americaLosAngeles: '美洲/洛杉矶',
+      americaDenver: '美洲/丹佛',
+      americaChicago: '美洲/芝加哥',
+      americaNewYork: '美洲/纽约',
+      americaHalifax: '美洲/哈利法克斯',
+      americaSaoPaulo: '美洲/圣保罗',
+      atlanticAzores: '大西洋/亚速尔',
+      europeLondon: '欧洲/伦敦',
+      europeParis: '欧洲/巴黎',
+      europeHelsinki: '欧洲/赫尔辛基',
+      europeMoscow: '欧洲/莫斯科',
+      asiaDubai: '亚洲/迪拜',
+      asiaKarachi: '亚洲/卡拉奇',
+      asiaDhaka: '亚洲/达卡',
+      asiaBangkok: '亚洲/曼谷',
+      asiaShanghai: '亚洲/上海',
+      asiaTokyo: '亚洲/东京',
+      australiaSydney: '澳大利亚/悉尼',
+      pacificNoumea: '太平洋/努美阿',
+      pacificAuckland: '太平洋/奥克兰'
+    },
     status: '状态',
     statusMessage: '状态信息',
     statusMessagePlaceholder: '分享你正在做的事情',
     statusOptions: {
       online: '在线',
-      away: '离开',
-      dnd: '请勿打扰'
+      working: '工作中',
+      dnd: '请勿打扰',
+      offline: '离线'
     },
     language: '语言',
     languageDefault: '默认',
     changesApply: '重启后生效。',
-    spellCheck: '拼写检查',
     defaultMember: '默认成员',
     selectMember: '选择成员',
     refreshList: '刷新列表',
@@ -454,12 +501,13 @@ export default {
     members: '成员',
     notifications: '通知',
     keybinds: '快捷键',
+    createTeam: '新建团队',
     leaveTeam: '退出团队',
     logOut: '退出账号',
     memberName: '成员名称',
     memberNamePlaceholder: '输入成员标签',
     commandInput: '命令行输入',
-    commandPlaceholder: '例如 /usr/local/bin/my-cli',
+    commandPlaceholder: '终端启动命令 例如:gemini',
     confirm: '确认',
     notificationsSubtitle: '选择你接收通知的方式与时机。',
     notificationOptions: {
