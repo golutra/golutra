@@ -1,5 +1,59 @@
 # golutra
 
+**使用赛博监工系统，指挥你的 AI 牛马。**  
+**Cyber Overseer System: Command your AI workforce.**
+
+---
+
+<p align="center">
+  <a href="https://www.golutra.com/" target="_blank" rel="noopener noreferrer">
+    <img width="100" src="./src-tauri/icons/icon.png" alt="golutra logo" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/golutra/golutra/releases"><img src="https://img.shields.io/github/v/release/golutra/golutra?label=release" alt="release"></a>
+  <a href="https://www.golutra.com/"><img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2f7af8" alt="platform"></a>
+  <a href="https://mariadb.com/bsl11/"><img src="https://img.shields.io/badge/license-BSL%201.1-ff9f1a" alt="license"></a>
+</p>
+
+<p align="center">
+  <a href="#english">English</a> ·
+  <a href="#中文">中文</a> ·
+  <a href="https://www.golutra.com/">Website</a> ·
+  <a href="https://github.com/golutra/golutra/releases">Releases</a> ·
+  <a href="https://youtu.be/KpAgetjYfoY">Video (EN)</a> ·
+  <a href="https://www.bilibili.com/video/BV1qcfhBFEpP/?spm_id_from=333.1387.homepage.video_card.click">视频 (中文)</a>
+</p>
+
+<table align="center">
+  <tr>
+    <td align="center"><img src="./assets/readme/icons/claude-code.png" alt="Claude Code" height="48" /></td>
+    <td align="center"><img src="./assets/readme/icons/gemini.png" alt="Gemini CLI" height="48" /></td>
+    <td align="center"><img src="./assets/readme/icons/codex.png" alt="Codex CLI" height="48" /></td>
+    <td align="center"><img src="./assets/readme/icons/opencode.svg" alt="OpenCode" width="36" /></td>
+    <td align="center"><img src="./assets/readme/icons/qwen.png" alt="Qwen Code" height="48" /></td>
+  </tr>
+  <tr>
+    <td align="center">Claude Code</td>
+    <td align="center">Gemini CLI</td>
+    <td align="center">Codex CLI</td>
+    <td align="center">OpenCode</td>
+    <td align="center">Qwen Code</td>
+  </tr>
+</table>
+
+<p align="center">
+  Keep your CLI. Orchestrate your AI workforce. <br />
+  保留你熟悉的 CLI，编排你的 AI 员工。
+</p>
+
+<p align="center">
+  <img src="./assets/readme/golutra-concept-hero.png" alt="golutra concept art" width="960" />
+</p>
+
+---
+
 ## English
 
 ### Tagline
@@ -71,7 +125,7 @@ This repository is for source code storage and releases.
 
 Business Email: [golutra&#64;hotmail.com](mailto:golutra%40hotmail.com)  
 Official Website: [https://www.golutra.com/](https://www.golutra.com/)  
-Video: <https://youtu.be/DKKracLotg8>  
+Video: <https://youtu.be/KpAgetjYfoY>  
 Discord: [https://discord.gg/QyNVu56mpY](https://discord.gg/QyNVu56mpY)
 Security Policy: See [SECURITY.md](SECURITY.md)
 
@@ -81,13 +135,8 @@ This software is independently developed and maintained by [seekskyworld](https:
 
 ### Open Source Status
 
-This project is now open source, and related code will be organized and opened in phases.
-
-To protect my privacy, any parts involving server keys, account configuration, or other sensitive information will be sanitized and refactored before being gradually published to the repository.
-
-I’m currently refactoring the architecture and separating modules that contain server keys, configs, and test data, which require careful review.
-I will open the full source as promised, but it needs time — this is two months of work, with many late nights spent on the architecture and details.
-So far the project has made no revenue; it’s driven purely by passion. Please allow a bit more time to open it properly.
+The source code is now open. Any parts involving server keys, account configuration, test data, or other sensitive information will be sanitized and refactored before being gradually published to the repository.
+This is two months of work, with many late nights spent on the architecture and details. It’s all to make the experience better; suggestions and bugs can be submitted on GitHub.
 
 ### What’s Next
 
@@ -145,6 +194,8 @@ Why this happens:
 - This command only removes the quarantine flag and does not modify app contents.
 
 If the app still cannot be opened, please contact the publisher for support.
+
+---
 
 ## 中文
 
@@ -226,11 +277,7 @@ golutra 是新一代多智能体工作空间，把你现有的 CLI 工具升级�
 
 ### 开源状态
 
-项目现已开源，并将持续分阶段整理与开放相关代码。  
-为保障自己的隐私，涉及服务器密钥、账号配置、测试数据及其他敏感信息的部分，会先完成脱敏与重构，再逐步同步到仓库。  
-我目前正在拆分架构与整理代码，这些模块需要逐一核对与隔离。  
-我会按承诺完整开源，但这确实需要时间——这是我两个月的心血，很多个夜晚都在打磨架构与细节。  
-到目前为止项目没有任何收入，全凭热爱推进。请给我一点时间，把它更稳妥、更完整地开放出来。
+项目源码已经开源，涉及服务器密钥、账号配置、测试数据及其他敏感信息的部分，会先完成脱敏与重构，再逐步同步到仓库，这是我两个月的心血，很多个夜晚都在打磨架构与细节。都是为了体验能更好，有相关建议和 bug 可以在 GitHub 提交。
 
 ### 后续发展
 
