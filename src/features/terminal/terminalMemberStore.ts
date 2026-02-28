@@ -175,7 +175,7 @@ export const useTerminalMemberStore = defineStore('terminal-member', () => {
       const last = lastSyncedMemberStatus.get(member.id);
       if (last !== status) {
         lastSyncedMemberStatus.set(member.id, status);
-        void setMemberStatus(member.id, status).catch(() => {});
+        void setMemberStatus(member.id, status).catch(() => { });
       }
     }
     for (const memberId of Array.from(lastSyncedMemberStatus.keys())) {
@@ -183,7 +183,7 @@ export const useTerminalMemberStore = defineStore('terminal-member', () => {
         continue;
       }
       lastSyncedMemberStatus.delete(memberId);
-      void setMemberStatus(memberId, '').catch(() => {});
+      void setMemberStatus(memberId, '').catch(() => { });
     }
   };
 
@@ -232,7 +232,7 @@ export const useTerminalMemberStore = defineStore('terminal-member', () => {
     if (!readyWindowLabels.has(windowLabel)) {
       queuePendingTab(windowLabel, payload);
     }
-    await emitTo(windowLabel, TERMINAL_OPEN_TAB_EVENT, payload).catch(() => {});
+    await emitTo(windowLabel, TERMINAL_OPEN_TAB_EVENT, payload).catch(() => { });
   };
 
   const ensureTerminalWindow = async () => {
@@ -253,7 +253,7 @@ export const useTerminalMemberStore = defineStore('terminal-member', () => {
       readyWindowLabels.delete(result.label);
     }
     if (!readyWindowLabels.has(result.label)) {
-      void emitTo(result.label, TERMINAL_WINDOW_READY_REQUEST_EVENT, {}).catch(() => {});
+      void emitTo(result.label, TERMINAL_WINDOW_READY_REQUEST_EVENT, {}).catch(() => { });
     }
     return result.label;
   };
@@ -270,27 +270,42 @@ export const useTerminalMemberStore = defineStore('terminal-member', () => {
     }
     const resolvedTitle = resolveTitle(member.name, member.id);
     const requestedSessionId = buildMemberSessionId(workspace.id, member.id);
+    const memberKey = buildMemberKey(member.id, workspace.id);
     ensureStatusListener();
-    const sessionId = await createSession({
-      cwd: workspace.path,
-      memberId: member.id,
-      workspaceId: workspace.id,
-      keepAlive: true,
-      sessionId: requestedSessionId,
-      terminalType: member.terminalType,
-      terminalCommand,
-      terminalPath: resolveTerminalPath(member)
-    });
     const entry: MemberTerminalSession = {
       memberId: member.id,
-      sessionId,
+      sessionId: requestedSessionId,
       title: resolvedTitle,
       workspaceId: workspace.id,
       terminalStatus: 'connecting',
       terminalType: member.terminalType
     };
-    memberSessions.value[buildMemberKey(member.id, workspace.id)] = entry;
+    memberSessions.value[memberKey] = entry;
     void updateMember(member.id, { terminalStatus: 'connecting' }, { persist: false });
+    let sessionId: string;
+    try {
+      sessionId = await createSession({
+        cwd: workspace.path,
+        memberId: member.id,
+        workspaceId: workspace.id,
+        keepAlive: true,
+        sessionId: requestedSessionId,
+        terminalType: member.terminalType,
+        terminalCommand,
+        terminalPath: resolveTerminalPath(member)
+      });
+    } catch (error) {
+      delete memberSessions.value[memberKey];
+      void updateMember(member.id, { terminalStatus: 'disconnected' }, { persist: false });
+      throw error;
+    }
+    if (sessionId !== requestedSessionId) {
+      entry.sessionId = sessionId;
+    }
+    if (entry.terminalStatus === 'connecting') {
+      entry.terminalStatus = 'connected';
+      void updateMember(member.id, { terminalStatus: 'connected' }, { persist: false });
+    }
     if (options?.openTab ?? true) {
       await openMemberTab(entry, resolvedTitle);
     }
@@ -402,7 +417,7 @@ export const useTerminalMemberStore = defineStore('terminal-member', () => {
     }
     const closePromise = closeSession(entry.sessionId, { preserve: options?.preserve ?? true });
     if (options?.fireAndForget) {
-      void closePromise.catch(() => {});
+      void closePromise.catch(() => { });
     } else {
       await closePromise;
     }
