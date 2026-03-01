@@ -7,16 +7,24 @@
     <title>golutra</title>
     <script>
       (() => {
-        const storageKey = 'nexus-theme';
-        const stored = window.localStorage.getItem(storageKey);
-        const theme = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'dark';
         const root = document.documentElement;
+        const themeKey = 'golutra-theme';
+        const localeKey = 'golutra-locale';
+        const isValidTheme = (value) => value === 'light' || value === 'dark' || value === 'system';
+        const isValidLocale = (value) => value === 'en-US' || value === 'zh-CN';
+        const storedTheme = window.localStorage.getItem(themeKey);
+        const storedLocale = window.localStorage.getItem(localeKey);
+        const theme = isValidTheme(storedTheme) ? storedTheme : 'dark';
         root.dataset.theme = theme;
         const resolvedTheme = theme === 'system'
           ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
           : theme;
         root.dataset.resolvedTheme = resolvedTheme;
         root.classList.toggle('dark', resolvedTheme === 'dark');
+        const locale = isValidLocale(storedLocale) ? storedLocale : (isValidLocale(root.lang) ? root.lang : 'en-US');
+        root.lang = locale;
+        window.__GOLUTRA_THEME__ = theme;
+        window.__GOLUTRA_LOCALE__ = locale;
       })();
     </script>
     <style>

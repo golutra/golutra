@@ -1,6 +1,6 @@
 //! 消息流水线类型：承载规范化与投递决策数据。
 
-use crate::terminal_engine::models::TerminalMessagePayload;
+use crate::contracts::terminal_message::TerminalMessagePayload;
 
 #[derive(Clone)]
 pub(crate) struct MessageEnvelope {

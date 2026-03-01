@@ -1,15 +1,15 @@
 <template>
-  <div ref="containerRef" class="w-16 md:w-64 bg-panel/50 border-r border-white/5 flex flex-col shrink-0">
-    <div class="h-16 flex items-center px-2 md:px-4 justify-center md:justify-start">
+  <div ref="containerRef" class="w-12 lg:w-56 bg-panel/50 border-r border-white/5 flex flex-col shrink-0">
+    <div class="h-16 flex items-center px-2 lg:px-4 justify-center lg:justify-start">
       <h2 class="text-white font-bold text-sm tracking-wide flex items-center gap-2">
         <span class="material-symbols-outlined text-primary text-[18px]">layers</span>
-        <span class="hidden md:inline">{{ workspaceName || t('chat.sidebar.workspaceName') }}</span>
+        <span class="hidden lg:inline">{{ workspaceName || t('chat.sidebar.workspaceName') }}</span>
       </h2>
     </div>
 
-    <div class="flex-1 overflow-y-auto py-4 px-1 md:px-2 space-y-6 custom-scrollbar">
+    <div class="flex-1 overflow-y-auto py-4 px-1 lg:px-2 space-y-6 custom-scrollbar">
       <div>
-        <div class="px-2 mb-2 items-center justify-between group hidden md:flex">
+        <div class="px-2 mb-2 items-center justify-between group hidden lg:flex">
           <h3 class="text-[11px] font-bold text-white/40 uppercase tracking-wider">{{ t('chat.sidebar.channels') }}</h3>
           <button class="text-white/20 hover:text-white transition-colors opacity-0 group-hover:opacity-100" type="button">
             <span class="material-symbols-outlined text-[16px]">add</span>
@@ -20,13 +20,37 @@
             v-for="item in channelItems"
             :key="item.conversation.id"
             :class="[
-              'w-full px-2 md:px-3 py-2 rounded-xl flex items-center md:items-start gap-3 transition-all group cursor-pointer justify-center md:justify-start',
+              'w-full px-2 lg:px-3 py-2 rounded-xl flex items-center lg:items-start gap-3 transition-all group cursor-pointer justify-center lg:justify-start',
               item.conversation.id === activeConversationId ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white hover:bg-white/5'
             ]"
             @click="selectConversation(item.conversation.id)"
           >
-            <span :class="['text-[18px] font-semibold leading-none mt-0.5', item.conversation.id === activeConversationId ? 'text-primary' : 'text-white/30']">#</span>
-            <div class="hidden md:flex items-start gap-3 min-w-0 flex-1">
+            <div class="relative">
+              <div v-if="item.avatars.length > 0" class="relative w-9 h-9">
+                <div
+                  v-for="(member, index) in item.avatars"
+                  :key="member.id"
+                  class="absolute"
+                  :style="channelAvatarStyle(item.avatars.length, index)"
+                >
+                  <AvatarBadge :avatar="member.avatar" :label="member.name" class="w-full h-full rounded-full" />
+                </div>
+              </div>
+              <span
+                v-else
+                :class="[
+                  'text-[18px] font-semibold leading-none mt-0.5',
+                  item.conversation.id === activeConversationId ? 'text-primary' : 'text-white/30'
+                ]"
+              >
+                #
+              </span>
+              <span
+                v-if="hasUnread(item.conversation)"
+                class="absolute -top-0.5 -right-1.5 w-2 h-2 rounded-full bg-[rgb(209,101,91)] lg:hidden"
+              ></span>
+            </div>
+            <div class="hidden lg:flex items-start gap-3 min-w-0 flex-1">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2 min-w-0">
                   <span class="text-[13px] font-semibold truncate">{{ item.title }}</span>
@@ -36,7 +60,13 @@
                 <div class="text-[11px] text-white/40 truncate">{{ item.preview }}</div>
               </div>
             </div>
-            <div class="relative shrink-0 hidden md:block">
+            <div class="relative shrink-0 hidden lg:flex items-center gap-2">
+              <span
+                v-if="hasUnread(item.conversation)"
+                class="min-w-[20px] h-5 px-2 rounded-full text-[10px] font-semibold bg-[rgb(209,101,91)] text-on-primary border border-[rgb(209,101,91)] text-center leading-[18px]"
+              >
+                {{ formatUnreadCount(item.conversation.unreadCount) }}
+              </span>
               <button
                 type="button"
                 @click.stop="toggleMenu(item.conversation.id)"
@@ -102,7 +132,7 @@
       </div>
 
       <div>
-        <div class="px-2 mb-2 items-center justify-between group hidden md:flex">
+        <div class="px-2 mb-2 items-center justify-between group hidden lg:flex">
           <h3 class="text-[11px] font-bold text-white/40 uppercase tracking-wider">{{ t('chat.sidebar.directMessages') }}</h3>
           <button class="text-white/20 hover:text-white transition-colors opacity-0 group-hover:opacity-100" type="button">
             <span class="material-symbols-outlined text-[16px]">add</span>
@@ -113,7 +143,7 @@
             v-for="item in directMessageItems"
             :key="item.conversation.id"
             :class="[
-              'w-full px-2 md:px-3 py-2 rounded-xl flex items-center md:items-start gap-3 transition-all group cursor-pointer justify-center md:justify-start',
+              'w-full px-2 lg:px-3 py-2 rounded-xl flex items-center lg:items-start gap-3 transition-all group cursor-pointer justify-center lg:justify-start',
               item.conversation.id === activeConversationId ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white hover:bg-white/5'
             ]"
             @click="selectConversation(item.conversation.id)"
@@ -124,20 +154,18 @@
                 :label="item.member.name"
                 class="w-9 h-9 rounded-full shadow-md"
               />
-              <div
-                :class="[
-                  'absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-panel',
-                  item.member.status === 'online'
-                    ? 'bg-green-500'
-                    : item.member.status === 'working'
-                      ? 'bg-amber-400'
-                      : item.member.status === 'dnd'
-                        ? 'bg-red-500'
-                        : 'bg-white/20'
-                ]"
-              ></div>
+              <span
+                v-if="hasUnread(item.conversation)"
+                class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[rgb(209,101,91)] border border-panel lg:hidden"
+              ></span>
+              <MemberStatusDots
+                class="absolute -bottom-0.5 -right-0.5"
+                :status="resolveManualStatus(item.member)"
+                :terminal-status="item.member.terminalStatus"
+                :show-terminal-status="hasTerminalConfig(item.member.terminalType, item.member.terminalCommand)"
+              />
             </div>
-            <div class="hidden md:flex items-start gap-3 min-w-0 flex-1">
+            <div class="hidden lg:flex items-start gap-3 min-w-0 flex-1">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-2 min-w-0">
                   <span class="text-[13px] font-semibold truncate">{{ item.title }}</span>
@@ -147,7 +175,13 @@
                 <div class="text-[11px] text-white/40 truncate">{{ item.preview }}</div>
               </div>
             </div>
-            <div class="relative shrink-0 hidden md:block">
+            <div class="relative shrink-0 hidden lg:flex items-center gap-2">
+              <span
+                v-if="hasUnread(item.conversation)"
+                class="min-w-[20px] h-5 px-2 rounded-full text-[10px] font-semibold bg-[rgb(209,101,91)] text-on-primary border border-[rgb(209,101,91)] text-center leading-[18px]"
+              >
+                {{ formatUnreadCount(item.conversation.unreadCount) }}
+              </span>
               <button
                 type="button"
                 @click.stop="toggleMenu(item.conversation.id)"
@@ -206,12 +240,16 @@
 </template>
 
 <script setup lang="ts">
+// 会话侧栏组件：展示频道/私聊列表与会话操作。
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Conversation, ConversationAction, Member } from '../types';
 import AvatarBadge from '@/shared/components/AvatarBadge.vue';
+import MemberStatusDots from './MemberStatusDots.vue';
 import { buildGroupConversationTitle } from '../utils';
 import { CURRENT_USER_ID } from '../data';
+import { hasTerminalConfig } from '@/shared/utils/terminal';
+import { resolveMemberDisplayName } from '@/shared/utils/memberDisplay';
 
 const props = defineProps<{
   conversations: Conversation[];
@@ -228,13 +266,27 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 const DEFAULT_MEMBER_NAME = 'Member';
+const MAX_UNREAD_DISPLAY = 99;
+const CHANNEL_AVATAR_BASE = 36;
 
 const openMenuId = ref<string | null>(null);
 const containerRef = ref<HTMLElement | null>(null);
 
-const memberById = computed(() => new Map(props.members.map((member) => [member.id, member])));
+const displayMembers = computed(() =>
+  props.members.map((member) => ({ ...member, name: resolveMemberDisplayName(member) }))
+);
+const memberById = computed(() => new Map(displayMembers.value.map((member) => [member.id, member])));
+const resolveManualStatus = (member: Member) => member.manualStatus ?? member.status;
 
 const normalizePreview = (text: string) => text.replace(/\s+/g, ' ').trim();
+const hasUnread = (conversation: Conversation) => (conversation.unreadCount ?? 0) > 0;
+const formatUnreadCount = (value?: number | null) => {
+  const count = Number.isFinite(value) ? Math.max(0, Math.floor(value ?? 0)) : 0;
+  if (count > MAX_UNREAD_DISPLAY) {
+    return `${MAX_UNREAD_DISPLAY}+`;
+  }
+  return `${count}`;
+};
 
 const getConversationTitle = (conversation: Conversation) => {
   if (conversation.type === 'dm') {
@@ -253,7 +305,7 @@ const getConversationTitle = (conversation: Conversation) => {
   }
   const groupTitle = buildGroupConversationTitle(
     conversation.memberIds,
-    props.members,
+    displayMembers.value,
     props.currentUserId ?? CURRENT_USER_ID,
     25
   );
@@ -266,11 +318,64 @@ const isDefaultChannel = (conversation: Conversation) =>
 const getLastMessagePreview = (conversation: Conversation) =>
   conversation.lastMessagePreview ? normalizePreview(conversation.lastMessagePreview) : '';
 
+const resolveChannelAvatarMembers = (conversation: Conversation) => {
+  const memberSet = new Set(conversation.memberIds);
+  // 频道头像只展示最老的成员，避免新成员频繁替换。
+  return displayMembers.value.filter((member) => memberSet.has(member.id)).slice(0, 4);
+};
+
+const resolveChannelAvatarLayout = (count: number) => {
+  if (count <= 1) {
+    return { size: CHANNEL_AVATAR_BASE, positions: [{ x: 0, y: 0 }] };
+  }
+  if (count === 2) {
+    return {
+      size: 24,
+      positions: [
+        { x: 0, y: 0 },
+        { x: 12, y: 12 }
+      ]
+    };
+  }
+  if (count === 3) {
+    return {
+      size: 22,
+      positions: [
+        { x: 0, y: 0 },
+        { x: 14, y: 0 },
+        { x: 7, y: 14 }
+      ]
+    };
+  }
+  return {
+    size: 20,
+    positions: [
+      { x: 0, y: 0 },
+      { x: 16, y: 0 },
+      { x: 16, y: 16 },
+      { x: 0, y: 16 }
+    ]
+  };
+};
+
+const channelAvatarStyle = (count: number, index: number) => {
+  const layout = resolveChannelAvatarLayout(count);
+  const position = layout.positions[index] ?? layout.positions[layout.positions.length - 1];
+  return {
+    width: `${layout.size}px`,
+    height: `${layout.size}px`,
+    left: `${position.x}px`,
+    top: `${position.y}px`,
+    zIndex: `${index + 1}`
+  };
+};
+
 const channelItems = computed(() =>
   props.conversations.filter((conversation) => conversation.type === 'channel').map((conversation) => ({
     conversation,
     title: getConversationTitle(conversation),
-    preview: getLastMessagePreview(conversation)
+    preview: getLastMessagePreview(conversation),
+    avatars: resolveChannelAvatarMembers(conversation)
   }))
 );
 
@@ -319,3 +424,4 @@ onBeforeUnmount(() => {
   document.removeEventListener('mousedown', handleClickOutside);
 });
 </script>
+

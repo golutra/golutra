@@ -7,9 +7,10 @@ mod reliability;
 mod throttle;
 mod types;
 
-use tauri::AppHandle;
-
-use crate::terminal_engine::models::TerminalMessagePayload;
+use crate::contracts::terminal_message::TerminalMessagePayload;
+use crate::ports::message_service::{
+  TerminalMessageAppendResult, TerminalMessageRepository, TerminalMessageTransport,
+};
 
 use dispatch::plan_terminal;
 use normalize::normalize_terminal;
@@ -18,23 +19,25 @@ use reliability::{deliver_terminal_final, deliver_terminal_stream};
 use throttle::apply_terminal;
 
 pub(crate) fn process_terminal_stream(
-  app: &AppHandle,
+  transport: &dyn TerminalMessageTransport,
+  repository: &dyn TerminalMessageRepository,
   payload: TerminalMessagePayload,
 ) -> Result<(), String> {
   let envelope = normalize_terminal(payload)?;
   let plan = plan_terminal(&envelope)?;
   let policy = evaluate_terminal(&envelope, &plan)?;
   let throttle = apply_terminal(&envelope, &plan, &policy)?;
-  deliver_terminal_stream(app, &envelope, &plan, &policy, &throttle)
+  deliver_terminal_stream(transport, repository, &envelope, &plan, &policy, &throttle)
 }
 
 pub(crate) fn process_terminal_final(
-  app: &AppHandle,
+  transport: &dyn TerminalMessageTransport,
+  repository: &dyn TerminalMessageRepository,
   payload: TerminalMessagePayload,
-) -> Result<(), String> {
+) -> Result<TerminalMessageAppendResult, String> {
   let envelope = normalize_terminal(payload)?;
   let plan = plan_terminal(&envelope)?;
   let policy = evaluate_terminal(&envelope, &plan)?;
   let throttle = apply_terminal(&envelope, &plan, &policy)?;
-  deliver_terminal_final(app, &envelope, &plan, &policy, &throttle)
+  deliver_terminal_final(transport, repository, &envelope, &plan, &policy, &throttle)
 }

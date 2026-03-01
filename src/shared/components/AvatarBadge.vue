@@ -12,6 +12,7 @@
 </template>
 
 <script setup lang="ts">
+// 头像展示组件：支持 CSS 预设与本地资源，并处理异步加载竞态。
 import { computed, ref, watch } from 'vue';
 import { DEFAULT_AVATAR } from '@/shared/constants/avatars';
 import { ensureAvatar, getAvatarVars, isCssAvatar, isLocalAvatar, resolveAvatarUrl } from '@/shared/utils/avatar';
@@ -22,6 +23,7 @@ const resolvedAvatar = ref(DEFAULT_AVATAR);
 const isCss = computed(() => isCssAvatar(resolvedAvatar.value));
 const avatarVars = computed(() => (isCss.value ? getAvatarVars(resolvedAvatar.value) : undefined));
 const label = computed(() => props.label ?? '');
+// 异步加载序号，确保仅应用最新一次解析结果。
 let loadSequence = 0;
 
 const updateAvatar = async () => {

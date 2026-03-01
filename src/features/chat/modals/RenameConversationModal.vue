@@ -40,6 +40,7 @@
 </template>
 
 <script setup lang="ts">
+// 会话重命名弹窗：输入并提交新的会话名称。
 import { ref, toRef, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 

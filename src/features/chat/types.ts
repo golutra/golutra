@@ -1,4 +1,7 @@
+// 聊天领域模型：定义成员、会话与消息的共享类型契约。
 import type { TerminalConnectionStatus, TerminalType } from '@/shared/types/terminal';
+import type { ConversationType } from '@/shared/types/conversation';
+export type { ConversationType } from '@/shared/types/conversation';
 
 export type MemberRole = 'owner' | 'admin' | 'assistant' | 'member';
 export type MemberStatus = 'online' | 'working' | 'dnd' | 'offline';
@@ -43,6 +46,7 @@ export type FriendEntry = {
   avatar: string;
   roleType: MemberRole;
   status: MemberStatus;
+  manualStatus?: MemberStatus;
   terminalStatus?: TerminalConnectionStatus;
   scope: FriendScope;
   terminalType?: TerminalType;
@@ -57,8 +61,6 @@ export type MemberActionPayload = {
   status?: MemberStatus;
 };
 
-export type ConversationType = 'channel' | 'dm';
-
 export type Conversation = {
   id: string;
   type: ConversationType;
@@ -71,6 +73,10 @@ export type Conversation = {
   muted: boolean;
   lastMessageAt?: number;
   lastMessagePreview?: string;
+  lastMessageSenderId?: string;
+  lastMessageSenderName?: string;
+  lastMessageSenderAvatar?: string;
+  lastMessageAttachment?: MessageAttachment;
   isDefault?: boolean;
   unreadCount?: number;
   messages: Message[];

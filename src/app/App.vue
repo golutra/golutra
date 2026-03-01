@@ -1,7 +1,13 @@
 <template>
+  <NotificationPreview v-if="isNotificationPreview" />
   <div
-    class="window-frame"
-    :class="{ 'window-frame--max': isMaximized, 'window-frame--inactive': !isFocused }"
+    v-else
+    class="window-frame relative"
+    :class="{
+      'window-frame--max': isMaximized,
+      'window-frame--inactive': !isFocused,
+      'window-frame--hover-stale': !isPointerReady
+    }"
   >
     <header
       class="titlebar"
@@ -31,13 +37,27 @@
         <button
           type="button"
           class="titlebar__btn"
-          :aria-label="t('app.windowControls.maximize')"
-          :title="t('app.windowControls.maximize')"
+          :aria-label="isMaximized ? t('app.windowControls.restore') : t('app.windowControls.maximize')"
+          :title="isMaximized ? t('app.windowControls.restore') : t('app.windowControls.maximize')"
           data-tauri-drag-region="false"
           @click="handleToggleMaximize"
         >
           <svg viewBox="0 0 10 10" aria-hidden="true">
-            <rect x="2" y="2" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1.2" rx="0.6" />
+            <rect
+              v-if="!isMaximized"
+              x="2"
+              y="2"
+              width="6"
+              height="6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.2"
+              rx="0.6"
+            />
+            <g v-else fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round">
+              <rect x="3" y="1.5" width="5.5" height="5.5" rx="0.6" />
+              <rect x="1.5" y="3" width="5.5" height="5.5" rx="0.6" />
+            </g>
           </svg>
         </button>
         <button
@@ -93,10 +113,46 @@
       </div>
     </div>
     <ToastStack />
+    <ContextMenuHost />
+    <div v-if="showResizeHandles" class="absolute inset-0 pointer-events-none z-50">
+      <div
+        class="absolute top-0 left-4 right-4 h-1 pointer-events-auto cursor-ns-resize"
+        @pointerdown.prevent="handleResizeStart('North')"
+      ></div>
+      <div
+        class="absolute bottom-0 left-4 right-4 h-1 pointer-events-auto cursor-ns-resize"
+        @pointerdown.prevent="handleResizeStart('South')"
+      ></div>
+      <div
+        class="absolute left-0 top-4 bottom-4 w-1 pointer-events-auto cursor-ew-resize"
+        @pointerdown.prevent="handleResizeStart('West')"
+      ></div>
+      <div
+        class="absolute right-0 top-4 bottom-4 w-1 pointer-events-auto cursor-ew-resize"
+        @pointerdown.prevent="handleResizeStart('East')"
+      ></div>
+      <div
+        class="absolute top-0 left-0 w-3 h-3 pointer-events-auto cursor-nwse-resize"
+        @pointerdown.prevent="handleResizeStart('NorthWest')"
+      ></div>
+      <div
+        class="absolute top-0 right-0 w-3 h-3 pointer-events-auto cursor-nesw-resize"
+        @pointerdown.prevent="handleResizeStart('NorthEast')"
+      ></div>
+      <div
+        class="absolute bottom-0 left-0 w-3 h-3 pointer-events-auto cursor-nesw-resize"
+        @pointerdown.prevent="handleResizeStart('SouthWest')"
+      ></div>
+      <div
+        class="absolute bottom-0 right-0 w-3 h-3 pointer-events-auto cursor-nwse-resize"
+        @pointerdown.prevent="handleResizeStart('SouthEast')"
+      ></div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+// 应用根组件：根据当前窗口上下文切换主视图与终端视图，并处理窗口控制状态。
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
@@ -109,37 +165,69 @@ import Settings from '@/features/Settings.vue';
 import WorkspaceSelection from '@/features/WorkspaceSelection.vue';
 import ChatInterface from '@/features/chat/ChatInterface.vue';
 import FriendsView from '@/features/chat/FriendsView.vue';
+import NotificationPreview from '@/features/notifications/NotificationPreview.vue';
+import ContextMenuHost from '@/shared/context-menu/ContextMenuHost.vue';
+import { registerDefaultContextMenuRules } from '@/shared/context-menu/defaults';
+import { useContextMenu } from '@/shared/context-menu/useContextMenu';
+import { useKeyboard } from '@/shared/keyboard/useKeyboard';
 import { useWorkspaceStore } from '@/features/workspace/workspaceStore';
 import { useGlobalStore } from '@/features/global/globalStore';
-import { useNavigationStore } from '@/stores/navigationStore';
+import { useSettingsStore } from '@/features/global/settingsStore';
+import { useNavigationStore, type AppTabId } from '@/stores/navigationStore';
+import { useNotificationOrchestratorStore } from '@/stores/notificationOrchestratorStore';
 import { useWorkspaceBootstrap } from './useWorkspaceBootstrap';
+import { registerAppKeybinds } from './useAppKeybinds';
 import { isTauri } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
+import { getCurrentWindow, type ResizeDirection } from '@tauri-apps/api/window';
+import { openWorkspaceSelectionWindow } from '@/shared/tauri/windows';
+import { LOCALE_CHANGED_EVENT, type AppLocale } from '@/i18n';
+import { THEME_CHANGED_EVENT, type AppTheme } from '@/features/global/theme';
 
-const navigationStore = useNavigationStore();
-const { activeTab } = storeToRefs(navigationStore);
-const { setActiveTab } = navigationStore;
-const workspaceStore = useWorkspaceStore();
-const { currentWorkspace } = storeToRefs(workspaceStore);
-const showWorkspaceSelection = computed(() => activeTab.value === 'workspaces' || !currentWorkspace.value);
-const { appReady } = useWorkspaceBootstrap();
-const globalStore = useGlobalStore();
-void globalStore.hydrate();
 const { t } = useI18n();
+// 兼容 query 参数与 Tauri 初始化脚本，两者均可能决定当前窗口视图。
 const resolvedView =
   typeof window !== 'undefined'
     ? new URLSearchParams(window.location.search).get('view') ??
-      (window as typeof window & { __NEXUS_VIEW__?: string }).__NEXUS_VIEW__
+      (window as typeof window & { __GOLUTRA_VIEW__?: string }).__GOLUTRA_VIEW__
     : null;
+const isNotificationPreview = resolvedView === 'notification-preview';
 const isTerminalView = resolvedView === 'terminal';
+const navigationStore = isNotificationPreview ? null : useNavigationStore();
+const activeTab = navigationStore ? storeToRefs(navigationStore).activeTab : ref<AppTabId>('chat');
+const setActiveTab = navigationStore ? navigationStore.setActiveTab : () => {};
+const workspaceStore = isNotificationPreview ? null : useWorkspaceStore();
+const currentWorkspace = workspaceStore ? storeToRefs(workspaceStore).currentWorkspace : ref(null);
+const settingsStore = useSettingsStore();
+const showWorkspaceSelection = computed(
+  () => !isNotificationPreview && (activeTab.value === 'workspaces' || !currentWorkspace.value)
+);
+const appReady = isNotificationPreview ? ref(true) : useWorkspaceBootstrap().appReady;
+
+if (!isNotificationPreview) {
+  useNotificationOrchestratorStore();
+  const globalStore = useGlobalStore();
+  void globalStore.hydrate();
+}
 const isTauriEnv = isTauri();
 const APP_NAME = 'golutra';
 const isMacOS = computed(() => typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform));
 const showWindowControls = computed(() => isTauriEnv && !isMacOS.value);
+const showResizeHandles = computed(() => isTauriEnv && !isNotificationPreview);
+const isMainView = resolvedView === null;
+type WorkspaceBootPayload = { id?: string; name?: string; path?: string };
+const terminalBootWorkspaceName =
+  typeof window !== 'undefined'
+    ? ((window as typeof window & { __GOLUTRA_WORKSPACE__?: WorkspaceBootPayload }).__GOLUTRA_WORKSPACE__?.name ?? '').trim()
+    : '';
 const contextTitle = computed(() => {
+  if (isNotificationPreview) {
+    return APP_NAME;
+  }
   if (isTerminalView) {
-    const name = currentWorkspace.value?.name?.trim();
-    return name ? `${name} Terminal` : 'Terminal';
+    // 终端窗口优先使用初始化注入的工作区名，避免主窗口逻辑覆盖标题。
+    const name = currentWorkspace.value?.name?.trim() || terminalBootWorkspaceName;
+    return name ? `${name} - Terminal` : 'Terminal';
   }
   if (showWorkspaceSelection.value) return 'Workspaces';
   if (!appReady.value) return 'Loading';
@@ -150,8 +238,38 @@ const windowTitle = computed(() => `${contextTitle.value} - ${APP_NAME}`);
 const appWindow = isTauriEnv ? getCurrentWindow() : null;
 const isMaximized = ref(false);
 const isFocused = ref(true);
+const isPointerReady = ref(true);
 let unlistenResize: (() => void) | null = null;
 let unlistenFocus: (() => void) | null = null;
+let unlistenOpenWorkspaceSelection: (() => void) | null = null;
+let unlistenLocaleChange: (() => void) | null = null;
+let unlistenThemeChange: (() => void) | null = null;
+let removeContextMenuListener: (() => void) | null = null;
+let removeKeydownListener: (() => void) | null = null;
+let removeAppKeybinds: (() => void) | null = null;
+let pointerReadyListener: (() => void) | null = null;
+const wasFocused = ref(true);
+const { handleContextMenuEvent } = useContextMenu();
+const { handleKeydownEvent } = useKeyboard();
+
+const armPointerReadyReset = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  isPointerReady.value = false;
+  if (pointerReadyListener) {
+    window.removeEventListener('pointermove', pointerReadyListener);
+  }
+  pointerReadyListener = () => {
+    isPointerReady.value = true;
+    if (pointerReadyListener) {
+      window.removeEventListener('pointermove', pointerReadyListener);
+      pointerReadyListener = null;
+    }
+  };
+  // 窗口恢复可见时先抑制 hover，等待首次鼠标移动再启用。
+  window.addEventListener('pointermove', pointerReadyListener, { once: true });
+};
 
 const refreshMaximized = async () => {
   if (!appWindow) return;
@@ -174,16 +292,57 @@ const handleToggleMaximize = () => {
 
 const handleClose = () => {
   if (!appWindow) return;
+  armPointerReadyReset();
   void appWindow.close();
+};
+
+const handleResizeStart = (direction: ResizeDirection) => {
+  if (!appWindow) return;
+  void appWindow.startResizeDragging(direction);
+};
+
+const resolveWorkspaceBoot = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const payload = (window as typeof window & { __GOLUTRA_WORKSPACE__?: WorkspaceBootPayload }).__GOLUTRA_WORKSPACE__;
+  const path = typeof payload?.path === 'string' ? payload.path.trim() : '';
+  if (!path) {
+    return null;
+  }
+  return { path };
+};
+
+const consumeWorkspaceBoot = () => {
+  if (!workspaceStore || !isMainView || isTerminalView || isNotificationPreview) {
+    return;
+  }
+  if (currentWorkspace.value) {
+    return;
+  }
+  const boot = resolveWorkspaceBoot();
+  if (!boot) {
+    return;
+  }
+  void workspaceStore.openWorkspaceByPath(boot.path);
+  try {
+    delete (window as typeof window & { __GOLUTRA_WORKSPACE__?: WorkspaceBootPayload }).__GOLUTRA_WORKSPACE__;
+  } catch {
+    // ignore
+  }
 };
 
 watch(
   () => currentWorkspace.value,
   (workspace) => {
+    if (isNotificationPreview) {
+      return;
+    }
     if (!workspace) {
       setActiveTab('workspaces');
       return;
     }
+    // 首次进入工作区时自动切到聊天视图，避免停留在工作区选择页。
     if (activeTab.value === 'workspaces') {
       setActiveTab('chat');
     }
@@ -194,15 +353,51 @@ watch(
 watch(
   windowTitle,
   (title) => {
-    if (!appWindow) return;
+    if (!appWindow || isNotificationPreview) return;
     appWindow.setTitle(title).catch(() => {});
   },
   { immediate: true }
 );
 
 onMounted(() => {
-  if (!appWindow) return;
+  if (!appWindow || isNotificationPreview) return;
   void refreshMaximized();
+  consumeWorkspaceBoot();
+  if (isTauriEnv && isMainView) {
+    listen(
+      'app-open-workspace-selection',
+      () => {
+        void openWorkspaceSelectionWindow();
+      },
+      { target: 'main' }
+    )
+      .then((unlisten) => {
+        unlistenOpenWorkspaceSelection = unlisten;
+      })
+      .catch(() => {});
+  }
+  if (isTauriEnv) {
+    listen<{ locale: AppLocale }>(LOCALE_CHANGED_EVENT, (event) => {
+      const next = event.payload?.locale;
+      if (next) {
+        settingsStore.applyExternalLocale(next);
+      }
+    })
+      .then((unlisten) => {
+        unlistenLocaleChange = unlisten;
+      })
+      .catch(() => {});
+    listen<{ theme: AppTheme }>(THEME_CHANGED_EVENT, (event) => {
+      const next = event.payload?.theme;
+      if (next) {
+        settingsStore.applyExternalTheme(next);
+      }
+    })
+      .then((unlisten) => {
+        unlistenThemeChange = unlisten;
+      })
+      .catch(() => {});
+  }
   appWindow
     .onResized(() => {
       void refreshMaximized();
@@ -214,11 +409,42 @@ onMounted(() => {
   appWindow
     .onFocusChanged((event) => {
       isFocused.value = event.payload;
+      if (event.payload && !wasFocused.value) {
+        armPointerReadyReset();
+      }
+      wasFocused.value = event.payload;
     })
     .then((unlisten) => {
       unlistenFocus = unlisten;
     })
     .catch(() => {});
+});
+
+onMounted(() => {
+  registerDefaultContextMenuRules();
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const listener = (event: MouseEvent) => handleContextMenuEvent(event);
+  window.addEventListener('contextmenu', listener);
+  removeContextMenuListener = () => {
+    window.removeEventListener('contextmenu', listener);
+  };
+});
+
+onMounted(() => {
+  if (isNotificationPreview) {
+    return;
+  }
+  removeAppKeybinds = registerAppKeybinds({ activeTab, setActiveTab });
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const listener = (event: KeyboardEvent) => handleKeydownEvent(event);
+  window.addEventListener('keydown', listener, { capture: true });
+  removeKeydownListener = () => {
+    window.removeEventListener('keydown', listener, { capture: true });
+  };
 });
 
 onBeforeUnmount(() => {
@@ -229,6 +455,34 @@ onBeforeUnmount(() => {
   if (unlistenFocus) {
     unlistenFocus();
     unlistenFocus = null;
+  }
+  if (unlistenOpenWorkspaceSelection) {
+    unlistenOpenWorkspaceSelection();
+    unlistenOpenWorkspaceSelection = null;
+  }
+  if (unlistenLocaleChange) {
+    unlistenLocaleChange();
+    unlistenLocaleChange = null;
+  }
+  if (unlistenThemeChange) {
+    unlistenThemeChange();
+    unlistenThemeChange = null;
+  }
+  if (removeContextMenuListener) {
+    removeContextMenuListener();
+    removeContextMenuListener = null;
+  }
+  if (removeKeydownListener) {
+    removeKeydownListener();
+    removeKeydownListener = null;
+  }
+  if (removeAppKeybinds) {
+    removeAppKeybinds();
+    removeAppKeybinds = null;
+  }
+  if (pointerReadyListener) {
+    window.removeEventListener('pointermove', pointerReadyListener);
+    pointerReadyListener = null;
   }
 });
 </script>

@@ -16,7 +16,7 @@
       <button
         v-if="memberCount !== undefined"
         type="button"
-        class="xl:hidden inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 text-white/70 border border-white/10 hover:bg-white/20 hover:text-white transition-colors"
+        class="md:hidden inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white/10 text-white/70 border border-white/10 hover:bg-white/20 hover:text-white transition-colors"
         @click="emit('open-members')"
       >
         <span class="material-symbols-outlined text-[18px]">group</span>
@@ -36,6 +36,7 @@
 </template>
 
 <script setup lang="ts">
+// 会话头部组件：展示标题、描述与成员信息。
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 

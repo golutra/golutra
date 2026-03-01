@@ -1,3 +1,4 @@
+// 工作区状态管理：负责打开/关闭、最近列表与注册表异常处理。
 import { computed, ref } from 'vue';
 import { acceptHMRUpdate, defineStore } from 'pinia';
 import { ask, open } from '@tauri-apps/plugin-dialog';
@@ -27,8 +28,10 @@ type WorkspaceRegistryMismatch = {
 
 type WorkspaceOpenResolution = 'move' | 'copy';
 
+// 与后端约定的错误前缀，用于解析工作区移动/复制提示信息。
 const WORKSPACE_REGISTRY_MISMATCH_PREFIX = 'workspace_registry_mismatch:';
 
+// 为默认频道生成稳定、可用的 slug，避免特殊字符导致下游不一致。
 const slugify = (value: string) =>
   value
     .trim()
@@ -41,6 +44,11 @@ const slugify = (value: string) =>
 
 const formatError = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+/**
+ * 工作区状态存储。
+ * 输入：外部触发的打开/关闭动作。
+ * 输出：当前工作区、最近列表与对外操作函数。
+ */
 export const useWorkspaceStore = defineStore('workspace', () => {
   const currentWorkspace = ref<WorkspaceEntry | null>(null);
   const recentWorkspaces = ref<WorkspaceEntry[]>([]);
@@ -49,6 +57,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const workspaceWarning = ref<string | null>(null);
   const workspaceError = ref<string | null>(null);
 
+  // 解析后端抛出的注册表不一致错误，提取可展示的路径信息。
   const parseRegistryMismatch = (error: unknown): WorkspaceRegistryMismatch | null => {
     const message = typeof error === 'string' ? error : error instanceof Error ? error.message : null;
     if (!message) {
@@ -80,6 +89,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   };
 
+  // 兼容 Windows 扩展路径与 UNC 表示，保持提示信息可读。
   const formatWorkspacePathForInfo = (path: string) => {
     if (!path) return path;
     if (!path.startsWith('\\\\?\\')) return path;
@@ -96,6 +106,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       newPath: formatWorkspacePathForInfo(info.currentPath)
     });
 
+  /**
+   * 弹出注册表不一致提示并返回用户决策。
+   * 输入：旧路径与新路径信息。
+   * 输出：'move' 或 'copy'。
+   */
   const promptRegistryMismatch = async (info: WorkspaceRegistryMismatch): Promise<WorkspaceOpenResolution> => {
     const moved = await ask(buildRegistryMismatchMessage(info), {
       title: i18n.global.t('workspace.registryMismatchTitle'),
@@ -106,6 +121,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return moved ? 'move' : 'copy';
   };
 
+  // 记录工作区信息用于后续快速打开，失败时不阻塞主流程。
   const recordWorkspaceInfo = async (workspace: WorkspaceEntry) => {
     try {
       await writeAppData(`${workspace.id}/info.json`, {
@@ -120,6 +136,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   };
 
+  /**
+   * 拉取最近工作区列表。
+   * 输入：无。
+   * 输出：更新 recentWorkspaces；失败时仅记录日志。
+   */
   const loadRecent = async () => {
     if (loadingRecent.value) {
       return;
@@ -135,6 +156,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   };
 
+  /**
+   * 按路径打开工作区，并处理注册表不一致提示。
+   * 输入：工作区路径。
+   * 输出：WorkspaceEntry 或 null。
+   * 错误语义：失败时写入 workspaceError，返回 null。
+   */
   const openWorkspaceByPath = async (path: string) => {
     workspaceError.value = null;
     const windowLabel = getCurrentWindowLabel();
@@ -174,6 +201,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   };
 
+  /**
+   * 打开目录选择对话框并尝试打开工作区。
+   * 输入：无。
+   * 输出：WorkspaceEntry 或 null。
+   */
   const openWorkspaceDialog = async () => {
     try {
       workspaceError.value = null;
@@ -188,6 +220,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   };
 
+  /**
+   * 关闭当前工作区并清理窗口级绑定。
+   * 输入：无。
+   * 输出：无。
+   */
   const closeWorkspace = () => {
     currentWorkspace.value = null;
     workspaceReadOnly.value = false;

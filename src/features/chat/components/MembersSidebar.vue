@@ -2,19 +2,22 @@
   <aside
     :class="[
       'bg-panel/50 glass-panel border-l border-white/5 shrink-0 flex-col py-6 px-4 h-full',
-      variant === 'drawer' ? 'flex w-72' : 'hidden xl:flex w-[260px]'
+      variant === 'drawer' ? 'flex w-72' : 'hidden md:flex w-[280px]'
     ]"
   >
     <div class="mb-6 flex items-center justify-between px-2">
       <h2 class="text-white font-bold text-[15px]">{{ t('members.title') }}</h2>
-      <button
-        type="button"
-        class="w-9 h-9 rounded-xl bg-white/10 border border-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors flex items-center justify-center"
-        :title="t('friends.invite')"
-        @click="emit('open-invite')"
-      >
-        <span class="material-symbols-outlined text-[18px]">group_add</span>
-      </button>
+      <!-- 允许外部替换头部操作按钮，未提供时回退到默认邀请入口。 -->
+      <slot name="header-action">
+        <button
+          type="button"
+          class="w-9 h-9 rounded-xl bg-white/10 border border-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors flex items-center justify-center"
+          :title="t('friends.invite')"
+          @click="emit('open-invite')"
+        >
+          <span class="material-symbols-outlined text-[18px]">group_add</span>
+        </button>
+      </slot>
     </div>
 
     <div class="space-y-2 overflow-y-auto custom-scrollbar flex-1">
@@ -82,6 +85,7 @@
 </template>
 
 <script setup lang="ts">
+// 成员侧栏组件：展示成员列表与操作菜单。
 import { computed, onBeforeUnmount, onMounted, ref, toRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Member, MemberActionPayload } from '../types';

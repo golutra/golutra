@@ -25,23 +25,23 @@
       <div class="absolute bottom-0 right-0 w-[40%] h-[40%] bg-blue-900/10 rounded-full blur-[100px]"></div>
     </div>
 
-    <div class="w-full max-w-3xl mb-16 mt-12 md:mt-10 z-10">
+    <div class="w-full max-w-2xl mb-10 mt-8 md:mt-6 z-10">
       <button
         type="button"
         @click="handleOpenFolder"
-        class="group w-full glass-panel bg-panel/40 rounded-3xl p-16 flex flex-col items-center justify-center text-center relative overflow-hidden transition-all duration-300 hover:bg-panel/60 hover:shadow-[0_0_40px_rgb(var(--color-primary)_/_0.15)] hover:border-primary/20 border border-white/5"
+        class="group w-full glass-panel bg-panel/40 rounded-3xl p-10 flex flex-col items-center justify-center text-center relative overflow-hidden transition-all duration-300 hover:bg-panel/60 hover:shadow-[0_0_40px_rgb(var(--color-primary)_/_0.15)] hover:border-primary/20 border border-white/5"
       >
         <div class="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
-        <div class="relative w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-primary/20 transition-all duration-300 border border-white/10 group-hover:border-primary/40 shadow-lg group-hover:shadow-primary/20">
-          <span class="material-symbols-outlined text-4xl text-gray-400 group-hover:text-primary transition-colors duration-300">folder_open</span>
+        <div class="relative w-14 h-14 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-primary/20 transition-all duration-300 border border-white/10 group-hover:border-primary/40 shadow-lg group-hover:shadow-primary/20">
+          <span class="material-symbols-outlined text-3xl text-gray-400 group-hover:text-primary transition-colors duration-300">folder_open</span>
         </div>
-        <h1 class="relative text-3xl font-bold text-white mb-3 tracking-tight">{{ t('workspace.openTitle') }}</h1>
-        <p class="relative text-gray-400 font-medium text-lg group-hover:text-gray-300 transition-colors">{{ t('workspace.openSubtitle') }}</p>
+        <h1 class="relative text-2xl font-bold text-white mb-2 tracking-tight">{{ t('workspace.openTitle') }}</h1>
+        <p class="relative text-gray-400 font-medium text-base group-hover:text-gray-300 transition-colors">{{ t('workspace.openSubtitle') }}</p>
       </button>
     </div>
 
     <div class="w-full max-w-6xl z-10">
-      <div class="flex items-center space-x-4 mb-8 px-2">
+      <div class="flex items-center space-x-4 mb-6 px-2">
         <h2 class="text-xs font-bold text-gray-500 tracking-[0.25em] uppercase">{{ t('workspace.recentTitle') }}</h2>
         <div class="h-px bg-gradient-to-r from-white/10 to-transparent flex-grow"></div>
         <div v-if="recentMore.length" class="relative group">
@@ -85,35 +85,35 @@
         </div>
       </div>
 
-      <div v-if="!recentPrimary.length" class="flex flex-col items-center justify-center text-center text-white/50 pb-20">
-        <div class="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-4">
-          <span class="material-symbols-outlined text-[28px]">history</span>
+      <div v-if="!recentPrimary.length" class="flex flex-col items-center justify-center text-center text-white/50 pb-12">
+        <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3">
+          <span class="material-symbols-outlined text-[22px]">history</span>
         </div>
         <p class="text-sm font-semibold text-white/70">{{ t('workspace.emptyTitle') }}</p>
         <p class="text-xs text-white/40 mt-1">{{ t('workspace.emptySubtitle') }}</p>
       </div>
 
-      <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-8 pb-20">
+      <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-6 pb-12">
         <button
           v-for="workspace in recentPrimary"
           :key="workspace.id"
           @click="handleOpenRecent(workspace.path)"
-          class="glass-panel bg-panel/40 rounded-3xl p-7 flex flex-col justify-between h-64 text-left group relative transition-all hover:bg-panel/60 hover:shadow-[0_0_30px_rgb(var(--color-primary)_/_0.12)]"
+          class="glass-panel bg-panel/40 rounded-3xl p-5 flex flex-col justify-between h-52 text-left group relative transition-all hover:bg-panel/60 hover:shadow-[0_0_30px_rgb(var(--color-primary)_/_0.12)]"
         >
           <div>
-            <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center border border-white/10 mb-6 group-hover:border-primary/30 transition-colors">
-              <span class="material-symbols-outlined text-2xl text-white/60 group-hover:text-primary">folder</span>
+            <div class="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center border border-white/10 mb-4 group-hover:border-primary/30 transition-colors">
+              <span class="material-symbols-outlined text-xl text-white/60 group-hover:text-primary">folder</span>
             </div>
-            <h3 class="text-xl font-bold text-white mb-2 group-hover:text-white/90 transition-colors tracking-tight truncate">
+            <h3 class="text-lg font-bold text-white mb-1.5 group-hover:text-white/90 transition-colors tracking-tight truncate">
               {{ workspace.name }}
             </h3>
-            <p class="text-xs text-white/40 leading-relaxed font-medium truncate">{{ formatWorkspacePath(workspace.path) }}</p>
+            <p class="text-[11px] text-white/40 leading-relaxed font-medium truncate">{{ formatWorkspacePath(workspace.path) }}</p>
           </div>
-          <div class="flex items-center justify-between mt-6 border-t border-white/5 pt-4">
-            <span class="text-[11px] text-white/30 font-semibold uppercase tracking-wider">
+          <div class="flex items-center justify-between mt-4 border-t border-white/5 pt-3">
+            <span class="text-[10px] text-white/30 font-semibold uppercase tracking-wider">
               {{ formatRelativeTime(workspace.lastOpenedAt) }}
             </span>
-            <span class="text-[11px] text-white/40">{{ t('workspace.openAction') }}</span>
+            <span class="text-[10px] text-white/40">{{ t('workspace.openAction') }}</span>
           </div>
         </button>
       </div>
@@ -122,6 +122,7 @@
 </template>
 
 <script setup lang="ts">
+// 工作区选择页：提供打开目录与最近列表入口，并处理错误提示的自动消退。
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
@@ -144,6 +145,7 @@ const handleOpenRecent = async (path: string) => {
   await openWorkspaceByPath(path);
 };
 
+// 兼容 Windows 扩展路径与 UNC 格式，保证展示层可读性。
 const formatWorkspacePath = (path: string) => {
   if (!path) return path;
   if (!path.startsWith('\\\\?\\')) return path;
@@ -191,6 +193,7 @@ watch(
       errorTimer.value = null;
     }
     if (message) {
+      // 错误提示自动关闭，避免长期占用视觉焦点。
       errorTimer.value = window.setTimeout(() => {
         clearWorkspaceError();
         errorTimer.value = null;

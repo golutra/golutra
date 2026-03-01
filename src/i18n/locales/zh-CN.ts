@@ -1,9 +1,11 @@
+// [2026-01-23 00:59] 目的: 维护中文界面文案与键值映射，集中管理以便一致性与可翻译性; 边界: 仅包含文案资源，不引入业务逻辑或运行时行为; 设计: 键结构与功能域对齐以降低跨模块引用成本与回归风险。
 export default {
   app: {
     name: 'golutra',
     windowControls: {
       minimize: '最小化',
       maximize: '最大化',
+      restore: '还原',
       close: '关闭'
     }
   },
@@ -20,9 +22,14 @@ export default {
     title: '终端',
     subtitle: '在一个工作区内运行多个终端会话。',
     newTab: '新建标签',
+    tabSearchPlaceholder: '搜索标签...',
+    tabSearchCreate: '新建标签',
+    tabSearchEmpty: '未找到匹配的标签。',
+    recentClosedTabs: '最近关闭的标签页（{count}）',
     emptyTabs: '暂无终端。',
     emptyTitle: '没有活动终端',
     emptySubtitle: '新建一个终端标签开始。',
+    splitEmpty: '拖动标签到这里，或新建一个终端。',
     unavailableTitle: '终端不可用',
     unavailableSubtitle: '请在 Tauri 桌面应用中打开该页面。',
     errorTitle: '终端启动失败',
@@ -30,16 +37,44 @@ export default {
     resourceLimit: '系统资源不足，无法启动新终端，请先关闭部分后台任务。',
     statusLabel: '终端状态',
     statusOptions: {
+      pending: '待确认',
       connecting: '连接中',
       connected: '已连接',
       working: '工作中',
       disconnected: '已断开'
-    }
+    },
+    tabMenu: {
+      close: '关闭当前',
+      closeOthers: '关闭其它',
+      closeRight: '关闭右侧',
+      pin: '置顶',
+      unpin: '取消置顶',
+      layoutSingle: '单窗口',
+      layoutSplitVertical: '左右分屏',
+      layoutSplitHorizontal: '上下分屏',
+      layoutGrid: '四分屏'
+    },
+    contextMenu: {
+      clear: '清除',
+      find: '查找'
+    },
+    findPlaceholder: '查找...',
+    findNoResults: '无结果',
+    findCaseSensitive: '区分大小写',
+    findWholeWord: '全字匹配',
+    findRegex: '使用正则'
   },
-  common: {
-    userAvatarAlt: '用户',
-    remove: '删除'
+  contextMenu: {
+    copy: '复制',
+    cut: '剪切',
+    paste: '粘贴',
+    selectAll: '全选'
   },
+    common: {
+      userAvatarAlt: '用户',
+      remove: '删除',
+      openFolder: '打开文件夹'
+    },
   chat: {
     channelName: 'general',
     channelDisplay: '#general',
@@ -54,11 +89,30 @@ export default {
       directPlaceholder: '发送给 {name}',
       send: '发送',
       stop: '停止生成',
+      mentions: '提及',
+      removeMention: '移除提及 {name}',
       hint: 'Enter 发送 • Shift+Enter 换行',
       quickPrompts: {
         summarize: '总结最新讨论',
         draftReply: '生成礼貌回复',
         extractTasks: '提取行动项'
+      },
+      emoji: {
+        recent: '最近使用',
+        search: '搜索表情...',
+        empty: '没有匹配的表情',
+        emptyRecent: '还没有常用表情',
+        groups: {
+          smileys: '表情与情绪',
+          people: '人物与身体',
+          component: '肤色与修饰',
+          animals: '动物与自然',
+          food: '食物与饮料',
+          travel: '旅行与地点',
+          activities: '活动',
+          objects: '物品',
+          symbols: '符号'
+        }
       }
     },
     sidebar: {
@@ -247,10 +301,31 @@ export default {
       updated: '2 小时前更新',
       active: '启用中'
     },
+    project: {
+      title: '项目技能',
+      import: '导入我的技能',
+      pickerSubtitle: '从技能库中选择并关联到当前工作区。',
+      searchPlaceholder: '搜索技能库中的技能...',
+      linkAction: '关联',
+      loading: '正在加载项目技能...',
+      empty: '当前还没有关联项目技能。',
+      emptyLibrary: '我的技能库里暂无可用技能。',
+      emptySearch: '没有匹配的技能。',
+      readOnlyHint: '工作区为只读状态，无法关联技能。',
+      removeConfirmTitle: '移除项目技能？',
+      removeConfirmMessage: '此操作将从当前工作区取消关联“{name}”。',
+      removeConfirmOk: '取消关联',
+      removeConfirmCancel: '取消'
+    },
     library: {
       searchPlaceholder: '搜索你的技能库...',
+      refresh: '刷新',
       importTitle: '导入技能',
       importSubtitle: '从 URL 或本地文件',
+      removeConfirmTitle: '删除技能文件夹？',
+      removeConfirmMessage: '这将从本地技能库中删除“{name}”。',
+      removeConfirmOk: '删除',
+      removeConfirmCancel: '取消',
       browseShop: '浏览技能商店'
     },
     footer: {
@@ -517,6 +592,17 @@ export default {
     changesApply: '重启后生效。',
     defaultMember: '默认成员',
     selectMember: '选择成员',
+    selectTerminal: '选择终端',
+    terminalAuto: '系统默认',
+    terminalAutoHint: '使用系统默认 shell。',
+    terminalCustom: '自定义终端',
+    terminalName: '终端名称',
+    terminalNamePlaceholder: '例如 PowerShell',
+    terminalPath: '终端可执行文件',
+    terminalPathPlaceholder: '选择终端可执行文件',
+    terminalBrowse: '选择文件',
+    terminalEmpty: '未检测到可用终端。',
+    terminalNotAvailable: '仅桌面端可用。',
     refreshList: '刷新列表',
     cancel: '取消',
     saveChanges: '保存修改',
@@ -546,8 +632,6 @@ export default {
       mentionsOnlyDesc: '只有被提及时才提醒。',
       previews: '消息预览',
       previewsDesc: '在通知中显示消息内容。',
-      weeklyDigest: '每周摘要',
-      weeklyDigestDesc: '每周发送一次活动摘要。',
       quietHours: '静默时段',
       quietHoursDesc: '在设定时间段内关闭提醒。'
     },
@@ -569,9 +653,31 @@ export default {
     dataClearTitle: '清空聊天记录',
     dataClearHint: '删除当前工作区的全部消息和附件。',
     dataClearAction: '清空所有消息',
+    chatStreamTitle: '聊天流式输出',
+    chatStreamHint: '执行中展示终端流式输出，关闭后仅回写最终结果。',
     dataClearConfirm: '此操作会永久删除当前工作区的所有聊天记录，是否继续？',
     dataClearResult: '已清空 {messages} 条消息，{attachments} 个附件。',
     dataActionFailed: '操作失败，请重试。',
+    terminalCallChainsTitle: '调用链详情',
+    terminalSnapshotAuditTitle: '终端快照审计',
+    terminalSnapshotAuditHint: '打开并关闭终端窗口，对比前端与后端快照。',
+    terminalSnapshotAuditAction: '运行快照审计',
+    terminalSnapshotAuditRunning: '正在运行快照审计...',
+    terminalSnapshotAuditNotAvailable: '仅桌面端可用。',
+    terminalSnapshotAuditStatus: {
+      idle: '快照审计待运行。',
+      running: '快照审计进行中...',
+      passed: '快照审计通过。',
+      failed: '快照审计失败。'
+    },
+    terminalSnapshotAuditLegend: 'FB：前端对后端 · FR：前端对重开 · BR：后端对重开',
+    terminalSnapshotAuditRound: '第 {round} 轮',
+    terminalSnapshotAuditCreated: '审计临时创建',
+    terminalSnapshotAuditNoMembers: '暂无终端成员可测试。',
+    terminalSnapshotAuditCheck: {
+      ok: 'OK',
+      ng: 'NG'
+    },
     keybindProfiles: {
       default: '默认',
       vscode: 'VS Code',
@@ -589,6 +695,8 @@ export default {
       gemini: 'Gemini CLI',
       codex: 'Codex',
       claude: 'Claude Code',
+      opencode: 'opencode',
+      qwen: 'Qwen Code',
       terminal: '终端',
       custom: '自定义 CLI'
     },
@@ -602,6 +710,20 @@ export default {
       edit: '更改',
       remove: '删除'
     },
+    terminalFriends: {
+      title: '终端好友',
+      desc: '删除终端成员并重置命名序号。',
+      action: '删除终端好友',
+      confirmCurrent: '仅删除当前项目的终端好友并重置序号？',
+      resultCurrent: '已删除当前项目的 {count} 个终端好友。',
+      failed: '删除终端好友失败。',
+      noWorkspace: '请先打开工作区。'
+    },
+    terminalTestErrors: {
+      shellBinaryNotFound: '找不到终端可执行文件：{path}',
+      shellLaunchFailed: '终端启动失败：{error}'
+    },
+    terminalTestFailed: '测试终端失败：{error}',
     themeOptions: {
       dark: {
         label: '深色',

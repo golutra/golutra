@@ -1,9 +1,11 @@
+// 联系人存储：负责联系人列表的持久化与数据清洗。
 import { isTauri } from '@tauri-apps/api/core';
 
 import { readAppData, writeAppData } from '@/shared/tauri/storage';
 import { DEFAULT_AVATAR } from '@/shared/constants/avatars';
 import type { Contact, MemberRole, MemberStatus } from './types';
 
+// 联系人数据文件名，与应用级存储约定保持一致。
 const CONTACTS_PATH = 'contacts.json';
 const ALLOWED_ROLES = new Set<MemberRole>(['owner', 'admin', 'assistant', 'member']);
 const ALLOWED_STATUSES = new Set<MemberStatus>(['online', 'working', 'dnd', 'offline']);
@@ -53,6 +55,11 @@ const normalizeContacts = (value: unknown): Contact[] => {
   return out;
 };
 
+/**
+ * 读取联系人列表。
+ * 输入：无。
+ * 输出：联系人数组；非 Tauri 环境返回空数组。
+ */
 export const loadContacts = async (): Promise<Contact[]> => {
   if (!isTauri()) {
     return [];
@@ -68,6 +75,11 @@ export const loadContacts = async (): Promise<Contact[]> => {
   return [];
 };
 
+/**
+ * 保存联系人列表。
+ * 输入：联系人数组。
+ * 输出：无；非 Tauri 环境直接返回。
+ */
 export const saveContacts = async (contacts: Contact[]): Promise<void> => {
   if (!isTauri()) {
     return;

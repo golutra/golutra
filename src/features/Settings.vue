@@ -1,6 +1,6 @@
 <template>
   <div class="flex h-full w-full overflow-hidden">
-    <aside class="w-16 md:w-[280px] bg-glass-sidebar glass-panel shrink-0 py-4 md:py-8 px-2 md:px-3 flex flex-col">
+    <aside class="w-14 md:w-[240px] bg-glass-sidebar glass-panel shrink-0 py-4 md:py-8 px-2 md:px-3 flex flex-col">
       <div class="px-4 mb-6 hidden md:block">
         <h2 class="text-white font-bold text-xl tracking-tight">{{ t('settings.title') }}</h2>
       </div>
@@ -350,7 +350,12 @@
           <div class="bg-white/[0.03] border border-white/5 rounded-2xl p-6">
             <div class="flex justify-between items-center mb-4">
               <p class="text-[13px] font-medium text-white/60 uppercase tracking-wider">{{ t('settings.selectMember') }}</p>
-              <button type="button" class="text-primary hover:text-primary-hover text-[13px] font-medium transition-colors" @click="resetMemberDraft">
+              <button
+                type="button"
+                class="text-primary hover:text-primary-hover text-[13px] font-medium transition-colors flex items-center gap-1"
+                @click="handleMemberRefresh"
+              >
+                <span :class="['material-symbols-outlined text-[16px]', memberRefreshSpinning ? 'spin-once' : '']">sync</span>
                 {{ t('settings.refreshList') }}
               </button>
             </div>
@@ -371,7 +376,36 @@
                       member.isCustom ? 'bg-white/5 group-hover:bg-white/10' : `bg-gradient-to-tr ${member.gradient}`
                     ]"
                   >
-                    <span class="material-symbols-outlined text-[28px]">{{ member.icon }}</span>
+                    <div v-if="member.iconKind === 'opencode'" class="member-icon-opencode" aria-hidden="true">
+                      <span>open</span>
+                      <span>code</span>
+                    </div>
+                    <div v-else-if="member.iconKind === 'qwen'" class="member-icon-qwen" aria-hidden="true">
+                      <svg viewBox="0 0 200 200" role="presentation">
+                        <defs>
+                          <linearGradient id="qwen-grad-top" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#ffffff" />
+                            <stop offset="100%" stop-color="#a29bfe" />
+                          </linearGradient>
+                          <linearGradient id="qwen-grad-side" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#6c5ce7" />
+                            <stop offset="100%" stop-color="#4834d4" />
+                          </linearGradient>
+                          <g id="qwen-arm">
+                            <path d="M100 100 L100 40 L155 65 L125 115 Z" fill="url(#qwen-grad-side)" />
+                            <path
+                              d="M100 100 L100 30 L165 60 L135 110 Z"
+                              fill="url(#qwen-grad-top)"
+                              transform="translate(-5, -5)"
+                            />
+                          </g>
+                        </defs>
+                        <use href="#qwen-arm" transform="rotate(0, 100, 100)" />
+                        <use href="#qwen-arm" transform="rotate(120, 100, 100)" />
+                        <use href="#qwen-arm" transform="rotate(240, 100, 100)" />
+                      </svg>
+                    </div>
+                    <span v-else class="material-symbols-outlined text-[28px]">{{ member.icon }}</span>
                   </div>
                   <div class="text-center">
                     <div class="text-white font-semibold text-sm">{{ member.label }}</div>
@@ -481,6 +515,159 @@
                 </div>
               </div>
             </div>
+
+            <div class="mt-6 pt-6 border-t border-white/5">
+              <div class="flex justify-between items-center mb-4">
+                <p class="text-[13px] font-medium text-white/60 uppercase tracking-wider">{{ t('settings.selectTerminal') }}</p>
+                <button
+                  type="button"
+                  class="text-primary hover:text-primary-hover text-[13px] font-medium transition-colors flex items-center gap-1"
+                  @click="handleTerminalRefresh"
+                >
+                  <span :class="['material-symbols-outlined text-[16px]', terminalRefreshSpinning ? 'spin-once' : '']">sync</span>
+                  {{ t('settings.refreshList') }}
+                </button>
+              </div>
+
+              <p v-if="terminalOptionsHint" class="text-[12px] text-white/40 mb-3">{{ terminalOptionsHint }}</p>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" @click="openTerminalMenuKey = null">
+                <div
+                  v-for="option in terminalDisplayOptions"
+                  :key="option.id"
+                  class="relative group cursor-pointer"
+                  @click="selectTerminalOption(option)"
+                >
+                  <div
+                    :class="[
+                      'cursor-pointer block h-full rounded-xl border p-4 transition-all',
+                      isTerminalOptionSelected(option)
+                        ? 'bg-primary/[0.08] border-primary/50 shadow-[0_0_20px_rgb(var(--color-primary)_/_0.12)]'
+                        : 'border-white/10 bg-white/[0.02] hover:bg-white/5 hover:border-white/20'
+                    ]"
+                  >
+                    <div class="text-white font-semibold text-sm">{{ option.label }}</div>
+                    <div class="text-[11px] text-white/40 mt-1 truncate">
+                      {{ option.path || t('settings.terminalAutoHint') }}
+                    </div>
+                  </div>
+                  <div v-if="hasTerminalMenu(option)" class="absolute top-2 right-2">
+                    <button
+                      type="button"
+                      class="w-6 h-6 rounded-full bg-white/10 text-white/70 hover:text-white hover:bg-white/20 flex items-center justify-center transition-colors"
+                      :aria-label="t('settings.memberActions.menuLabel')"
+                      @click.stop="toggleTerminalMenu(option)"
+                    >
+                      <span class="material-symbols-outlined text-[16px]">more_vert</span>
+                    </button>
+                    <div
+                      v-if="openTerminalMenuKey === resolveTerminalMenuKey(option)"
+                      class="absolute right-0 mt-2 w-36 rounded-xl border border-white/10 bg-panel/95 backdrop-blur-xl shadow-xl overflow-hidden z-10"
+                      @click.stop
+                    >
+                      <button
+                        type="button"
+                        class="w-full text-left px-3 py-2 text-[12px] text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                        @click="handleTerminalTest(option)"
+                      >
+                        {{ t('settings.memberActions.test') }}
+                      </button>
+                      <button
+                        v-if="option.source === 'custom'"
+                        type="button"
+                        class="w-full text-left px-3 py-2 text-[12px] text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+                        @click="startEditTerminal(option)"
+                      >
+                        {{ t('settings.memberActions.edit') }}
+                      </button>
+                      <button
+                        v-if="option.source === 'custom'"
+                        type="button"
+                        class="w-full text-left px-3 py-2 text-[12px] text-red-300/80 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                        @click="removeCustomTerminal(option.path)"
+                      >
+                        {{ t('settings.memberActions.remove') }}
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    v-if="isTerminalOptionSelected(option)"
+                    :class="[
+                      'absolute top-2 animate-in fade-in zoom-in duration-200',
+                      hasTerminalMenu(option) ? 'right-10' : 'right-2'
+                    ]"
+                  >
+                    <div class="w-5 h-5 rounded-full bg-primary flex items-center justify-center shadow-md">
+                      <span class="material-symbols-outlined text-on-primary text-[14px] font-bold">check</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="relative group cursor-pointer" @click="openCustomTerminalForm">
+                  <div class="cursor-pointer block h-full rounded-xl border border-dashed border-white/20 p-4 flex flex-col items-center gap-2 transition-all bg-white/[0.02] hover:bg-white/5 hover:border-white/30">
+                    <div class="w-10 h-10 rounded-xl border border-white/10 flex items-center justify-center text-white/60 shadow-lg bg-white/5 group-hover:bg-white/10">
+                      <span class="material-symbols-outlined text-[24px]">add</span>
+                    </div>
+                    <div class="text-center">
+                      <div class="text-white/70 font-semibold text-sm">{{ t('settings.terminalCustom') }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="isAddingCustomTerminal" class="animate-in fade-in slide-in-from-top-2 duration-300">
+                <div class="bg-white/[0.02] border border-white/10 rounded-xl p-5 relative">
+                  <div class="grid grid-cols-1 gap-4">
+                    <div class="space-y-2">
+                      <label class="text-[11px] font-bold text-white/40 uppercase tracking-wider block">{{ t('settings.terminalName') }}</label>
+                      <input
+                        v-model="customTerminalName"
+                        :class="inputClass"
+                        :placeholder="t('settings.terminalNamePlaceholder')"
+                        type="text"
+                      />
+                    </div>
+                    <div class="space-y-2">
+                      <label class="text-[11px] font-bold text-white/40 uppercase tracking-wider block">{{ t('settings.terminalPath') }}</label>
+                      <div class="flex flex-col sm:flex-row gap-2">
+                        <input
+                          v-model="customTerminalPath"
+                          :class="[inputClass, 'flex-1']"
+                          :placeholder="t('settings.terminalPathPlaceholder')"
+                          type="text"
+                        />
+                        <button
+                          type="button"
+                          class="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-[12px] font-semibold text-white/70 hover:text-white hover:border-primary/40 hover:bg-white/10 transition-colors"
+                          @click="selectCustomTerminalPath"
+                        >
+                          <span class="material-symbols-outlined text-[16px]">folder_open</span>
+                          {{ t('settings.terminalBrowse') }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex justify-end gap-2 mt-4">
+                    <button
+                      type="button"
+                      class="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500 flex items-center justify-center transition-colors"
+                      :title="t('settings.cancel')"
+                      @click="resetCustomTerminalForm"
+                    >
+                      <span class="material-symbols-outlined text-sm font-bold">close</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="w-8 h-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 flex items-center justify-center transition-colors"
+                      :title="t('settings.confirm')"
+                      @click="applyCustomTerminal"
+                    >
+                      <span class="material-symbols-outlined text-sm font-bold">check</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -577,11 +764,11 @@
               <div class="space-y-2">
                 <div
                   v-for="binding in activeKeybindProfile.bindings"
-                  :key="binding.actionKey"
+                  :key="binding.actionId"
                   class="flex items-center justify-between px-4 py-2 rounded-lg bg-white/[0.02] border border-white/5"
                 >
-                  <span class="text-sm text-white/70">{{ t(binding.actionKey) }}</span>
-                  <span class="text-xs font-mono text-white/70 bg-white/5 px-2 py-1 rounded-md border border-white/10">{{ binding.keys }}</span>
+                  <span class="text-sm text-white/70">{{ t(binding.labelKey) }}</span>
+                  <span class="text-xs font-mono text-white/70 bg-white/5 px-2 py-1 rounded-md border border-white/10">{{ formatKeybindKeys(binding.keys) }}</span>
                 </div>
               </div>
             </div>
@@ -630,9 +817,37 @@
               </button>
             </div>
 
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-4 border-t border-white/5">
+              <div>
+                <div class="text-[14px] font-semibold text-white/80">{{ t('settings.chatStreamTitle') }}</div>
+                <div class="text-[12px] text-white/40 mt-1">{{ t('settings.chatStreamHint') }}</div>
+              </div>
+              <div class="relative inline-block w-10 align-middle select-none">
+                <input id="chat-stream-output" v-model="draftSettings.chat.streamOutput" :class="toggleInputClass" type="checkbox" />
+                <label class="block overflow-hidden h-6 rounded-full bg-panel-strong/80 peer-checked:bg-primary cursor-pointer transition-colors" for="chat-stream-output"></label>
+              </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-4 border-t border-white/5">
+              <div>
+                <div class="text-[14px] font-semibold text-white/80">{{ t('settings.terminalFriends.title') }}</div>
+                <div class="text-[12px] text-white/40 mt-1">{{ t('settings.terminalFriends.desc') }}</div>
+              </div>
+              <button
+                type="button"
+                class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-[12px] font-semibold text-white/70 hover:text-white hover:border-primary/40 hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="purgingTerminalFriends"
+                @click="handlePurgeTerminalFriends"
+              >
+                <span class="material-symbols-outlined text-[16px]">person_remove</span>
+                {{ t('settings.terminalFriends.action') }}
+              </button>
+            </div>
+
             <div v-if="dataActionMessage" class="text-[12px] text-white/50">
               {{ dataActionMessage }}
             </div>
+
           </div>
         </section>
 
@@ -642,19 +857,32 @@
 </template>
 
 <script setup lang="ts">
+// 设置页逻辑：处理用户偏好、成员配置与数据维护，并与本地持久化同步。
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { isTauri } from '@tauri-apps/api/core';
-import { ask } from '@tauri-apps/plugin-dialog';
-import { useThemeStore, themeOptions, type AppTheme } from '@/features/global/themeStore';
+import { emitTo, listen } from '@tauri-apps/api/event';
+import { ask, open } from '@tauri-apps/plugin-dialog';
+import { themeOptions, type AppTheme } from '@/features/global/theme';
 import { openTerminalWindow } from '@/features/terminal/openTerminalWindow';
+import { closeSession, createSession } from '@/features/terminal/terminalBridge';
+import {
+  TERMINAL_OPEN_TAB_EVENT,
+  TERMINAL_WINDOW_READY_EVENT,
+  TERMINAL_WINDOW_READY_REQUEST_EVENT,
+  type TerminalOpenTabPayload,
+  type TerminalWindowReadyPayload
+} from '@/features/terminal/terminalEvents';
 import { openWorkspaceSelectionWindow } from '@/shared/tauri/windows';
+import { listTerminalEnvironments } from '@/shared/tauri/terminal';
+import { purgeProjectTerminalMembers } from '@/shared/tauri/projectData';
 import { useWorkspaceStore } from '@/features/workspace/workspaceStore';
 import { useChatStore } from '@/features/chat/chatStore';
 import { clearAllChatMessages, repairChatMessages } from '@/features/chat/chatBridge';
 import AvatarBadge from '@/shared/components/AvatarBadge.vue';
 import { AVATAR_PRESETS, DEFAULT_AVATAR_ID } from '@/shared/constants/avatars';
+import { useSpinOnce } from '@/shared/animations/useSpinOnce';
 import {
   clearAvatarUrlCache,
   ensureAvatar,
@@ -665,7 +893,7 @@ import {
   toCssAvatar,
   toLocalAvatar
 } from '@/shared/utils/avatar';
-import { BASE_TERMINALS, CUSTOM_TERMINAL_ICON } from '@/shared/constants/terminalCatalog';
+import { BASE_TERMINALS, CUSTOM_TERMINAL_ICON, resolveBaseTerminalLabel } from '@/shared/constants/terminalCatalog';
 import { TIME_ZONE_OPTIONS } from '@/shared/constants/timeZones';
 import {
   deleteAvatarAsset,
@@ -684,12 +912,15 @@ import {
   cloneSettings,
   localeOptions,
   useSettingsStore,
-  type KeybindProfile,
   type SettingsState
 } from '@/features/global/settingsStore';
+import { KEYBIND_PROFILES, type KeybindProfile } from '@/shared/keyboard/profiles';
 import { useProjectStore } from '@/features/workspace/projectStore';
+import { useToastStore } from '@/stores/toastStore';
 import { CURRENT_USER_ID } from '@/features/chat/data';
 import { generateUlid } from '@/features/chat/chatBridge';
+import type { TerminalEnvironmentOption } from '@/shared/types/terminal';
+import { parseTerminalError, resolveTerminalErrorI18nKey } from '@/shared/utils/terminalErrors';
 
 type MemberDisplayOption = {
   id: string;
@@ -697,6 +928,7 @@ type MemberDisplayOption = {
   command: string;
   kindLabel: string;
   icon: string;
+  iconKind: 'material' | 'opencode' | 'qwen';
   gradient?: string;
   isCustom: boolean;
   isDeletable: boolean;
@@ -704,7 +936,16 @@ type MemberDisplayOption = {
   index: number;
 };
 
-type NotificationToggleKey = 'desktop' | 'sound' | 'mentionsOnly' | 'previews' | 'weeklyDigest' | 'quietHoursEnabled';
+type TerminalDisplayOption = TerminalEnvironmentOption & {
+  source: 'auto' | 'detected' | 'custom';
+};
+
+type CustomTerminalEntry = {
+  name: string;
+  path: string;
+};
+
+type NotificationToggleKey = 'desktop' | 'sound' | 'mentionsOnly' | 'previews' | 'quietHoursEnabled';
 
 const emit = defineEmits<{ (e: 'logout'): void }>();
 const workspaceStore = useWorkspaceStore();
@@ -716,21 +957,30 @@ type SectionId = 'account' | 'appearance' | 'language' | 'members' | 'notificati
 
 const { t } = useI18n();
 const settingsStore = useSettingsStore();
-const { settings, locale } = storeToRefs(settingsStore);
-const { saveSettings, setAccountDisplayName, setLocale } = settingsStore;
-const themeStore = useThemeStore();
-const { theme } = storeToRefs(themeStore);
-const { setTheme } = themeStore;
+const { settings, locale, theme } = storeToRefs(settingsStore);
+const { saveSettings, setAccountDisplayName, setLocale, setTheme } = settingsStore;
+const toastStore = useToastStore();
+const { pushToast } = toastStore;
 const chatStore = useChatStore();
 const { loadSession, reset: resetChat } = chatStore;
-const { updateMember } = projectStore;
+const { updateMember, hydrate } = projectStore;
 
 const draftSettings = ref<SettingsState>(cloneSettings(settings.value));
 const customName = ref('');
 const customCommand = ref('');
 const isAddingCustom = ref(false);
+const terminalOptions = ref<TerminalEnvironmentOption[]>([]);
+const terminalOptionsLoading = ref(false);
+const terminalOptionsError = ref(false);
+const customTerminalName = ref('');
+const customTerminalPath = ref('');
+const isAddingCustomTerminal = ref(false);
 const openMemberMenuId = ref<string | null>(null);
 const editingMemberId = ref<string | null>(null);
+const openTerminalMenuKey = ref<string | null>(null);
+const purgingTerminalFriends = ref(false);
+const { spinning: memberRefreshSpinning, triggerSpin: triggerMemberRefreshSpin } = useSpinOnce();
+const { spinning: terminalRefreshSpinning, triggerSpin: triggerTerminalRefreshSpin } = useSpinOnce();
 
 const inputClass =
   'block w-full px-4 py-2.5 bg-surface/80 border border-white/10 rounded-lg text-white placeholder-white/20 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all text-sm';
@@ -756,6 +1006,7 @@ const sectionRefs: Array<{ id: SectionId; ref: typeof accountRef }> = [
   { id: 'data', ref: dataRef }
 ];
 const activeSection = ref<SectionId>('account');
+// 自动滚动期间避免滚动监听反复切换高亮。
 const isAutoScrolling = ref(false);
 const autoScrollTimeoutId = ref<number | null>(null);
 const targetScrollTop = ref<number | null>(null);
@@ -782,7 +1033,9 @@ const accountAvatar = computed(() => ensureAvatar(draftSettings.value.account.av
 const selectedAvatarId = computed(() => getCssAvatarId(accountAvatar.value));
 const selectedLocalAvatarId = computed(() => getLocalAvatarId(accountAvatar.value));
 const isCustomAvatar = computed(() => !isCssAvatar(accountAvatar.value));
+// 头像上传大小限制为 2MB，避免存储膨胀与性能退化。
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+// 菜单距离视口边界的安全边距，防止被裁切。
 const AVATAR_MENU_PADDING = 12;
 const supportsAvatarStorage = isTauri();
 const customAvatars = ref<AvatarAsset[]>([]);
@@ -791,6 +1044,8 @@ const repairingChatDb = ref(false);
 const clearingChatDb = ref(false);
 const dataActionMessage = ref<string | null>(null);
 
+
+// 对比设置时忽略会频繁变化的字段，避免触发循环保存。
 const serializeSettings = (value: SettingsState) => {
   const { account, ...rest } = value;
   const accountRest = { ...account };
@@ -801,6 +1056,7 @@ const syncDraftSettings = (next: SettingsState) => {
   draftSettings.value = cloneSettings(next);
 };
 
+// 构造可持久化的设置，避免覆盖正在编辑或由其他通道管理的字段。
 const buildPersistableSettings = (value: SettingsState) => {
   const nextDraft = cloneSettings(value);
   nextDraft.account.status = settings.value.account.status;
@@ -842,6 +1098,7 @@ const cancelEditDisplayName = () => {
   isEditingDisplayName.value = false;
 };
 
+// 保证头像菜单在视口内可见，避免溢出导致无法关闭。
 const clampAvatarMenu = () => {
   if (!avatarMenuRef.value) return;
   const rect = avatarMenuRef.value.getBoundingClientRect();
@@ -853,6 +1110,7 @@ const clampAvatarMenu = () => {
   };
 };
 
+// 优先使用点击位置定位菜单，回退到按钮下方。
 const positionAvatarMenu = (event?: MouseEvent) => {
   const button = avatarButtonRef.value;
   const clickLeft = event?.clientX;
@@ -890,6 +1148,7 @@ const triggerAvatarUpload = () => {
   avatarInputRef.value?.click();
 };
 
+// 仅接受常见图片类型，其他类型统一回退为 png。
 const AVATAR_EXTENSION_BY_MIME: Record<string, string> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
@@ -1020,28 +1279,8 @@ const resetAvatar = () => {
   avatarMenuOpen.value = false;
 };
 
-const migrateDataUrlAvatar = async () => {
-  if (!supportsAvatarStorage) return;
-  const current = draftSettings.value.account.avatar;
-  if (!current || typeof current !== 'string') return;
-  if (isCssAvatar(current) || isLocalAvatar(current)) return;
-  if (!current.startsWith('data:image/')) return;
-  try {
-    const { bytes, extension } = dataUrlToBytes(current);
-    if (bytes.length > MAX_AVATAR_BYTES) {
-      avatarError.value = t('settings.avatarErrors.tooLarge');
-      return;
-    }
-    const asset = await storeAvatarAsset(bytes, extension);
-    upsertCustomAvatar(asset);
-    draftSettings.value.account.avatar = toLocalAvatar(asset.id);
-  } catch (error) {
-    console.error('Failed to migrate avatar data URL.', error);
-  }
-};
-
 const handleChangeEmail = () => {
-  // TODO: implement change email flow.
+  // [TODO/Settings, 2026-01-23] 补齐邮箱变更流程与后端接口对接。
   void 0;
 };
 
@@ -1119,15 +1358,425 @@ const syncDefaultMemberIndex = (preferredId?: string) => {
   selectedMemberIndex.value = DEFAULT_MEMBER_INDEX;
 };
 
+const normalizeTerminalPathKey = (value: string) => value.trim().toLowerCase();
+
+const resolveTerminalLabelFromPath = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  const lastSegment = trimmed.split(/[\\/]/).pop() ?? '';
+  if (!lastSegment) {
+    return trimmed;
+  }
+  return lastSegment.replace(/\.[^.]+$/, '') || lastSegment;
+};
+
+const resolveCustomTerminalEntry = (path: string) => {
+  const key = normalizeTerminalPathKey(path);
+  if (!key) {
+    return null;
+  }
+  return (
+    customTerminalEntries.value.find(
+      (entry) => normalizeTerminalPathKey(entry.path) === key
+    ) ?? null
+  );
+};
+
+const upsertCustomTerminals = (
+  entries: CustomTerminalEntry[],
+  name: string,
+  path: string
+) => {
+  const key = normalizeTerminalPathKey(path);
+  if (!key) {
+    return entries;
+  }
+  let updated = false;
+  const next = entries.map((entry) => {
+    if (normalizeTerminalPathKey(entry.path) !== key) {
+      return entry;
+    }
+    updated = true;
+    return { name, path };
+  });
+  if (!updated) {
+    next.push({ name, path });
+  }
+  return next;
+};
+
+const selectedTerminalPath = computed(() => draftSettings.value.members.defaultTerminalPath.trim());
+const selectedTerminalName = computed(() => draftSettings.value.members.defaultTerminalName.trim());
+const customTerminalEntries = computed<CustomTerminalEntry[]>(
+  () => draftSettings.value.members.customTerminals ?? []
+);
+const autoTerminalOption = computed<TerminalDisplayOption>(() => ({
+  id: 'auto',
+  label: t('settings.terminalAuto'),
+  path: '',
+  source: 'auto'
+}));
+
+const terminalDisplayOptions = computed<TerminalDisplayOption[]>(() => {
+  const customMap = new Map<string, CustomTerminalEntry>();
+  customTerminalEntries.value.forEach((entry) => {
+    const key = normalizeTerminalPathKey(entry.path);
+    if (!key || customMap.has(key)) {
+      return;
+    }
+    customMap.set(key, entry);
+  });
+  const detected = terminalOptions.value.map((option) => {
+    const key = normalizeTerminalPathKey(option.path);
+    const custom = customMap.get(key);
+    if (custom) {
+      return {
+        ...option,
+        label: custom.name || option.label,
+        source: 'custom' as const
+      };
+    }
+    return {
+      ...option,
+      source: 'detected' as const
+    };
+  });
+  const detectedKeys = new Set(detected.map((option) => normalizeTerminalPathKey(option.path)));
+  const options: TerminalDisplayOption[] = [autoTerminalOption.value, ...detected];
+  customMap.forEach((entry, key) => {
+    if (detectedKeys.has(key)) {
+      return;
+    }
+    const label = entry.name || resolveTerminalLabelFromPath(entry.path) || t('settings.terminalCustom');
+    options.push({
+      id: `custom-${key}`,
+      label,
+      path: entry.path,
+      source: 'custom'
+    });
+  });
+  if (selectedTerminalPath.value) {
+    const storedKey = normalizeTerminalPathKey(selectedTerminalPath.value);
+    if (storedKey && !detectedKeys.has(storedKey) && !customMap.has(storedKey)) {
+      options.push({
+        id: `custom-${storedKey}`,
+        label: selectedTerminalName.value || resolveTerminalLabelFromPath(selectedTerminalPath.value) || t('settings.terminalCustom'),
+        path: selectedTerminalPath.value,
+        source: 'custom'
+      });
+    }
+  }
+  return options;
+});
+
+const terminalOptionsHint = computed(() => {
+  if (!isTauri()) {
+    return t('settings.terminalNotAvailable');
+  }
+  if (terminalOptionsLoading.value) {
+    return '';
+  }
+  if (terminalOptionsError.value || terminalOptions.value.length === 0) {
+    return t('settings.terminalEmpty');
+  }
+  return '';
+});
+
+const isTerminalOptionSelected = (option: TerminalDisplayOption) => {
+  if (option.source === 'auto') {
+    return !selectedTerminalPath.value;
+  }
+  if (!selectedTerminalPath.value) {
+    return false;
+  }
+  return normalizeTerminalPathKey(option.path) === normalizeTerminalPathKey(selectedTerminalPath.value);
+};
+
+const loadTerminalEnvironments = async () => {
+  if (!isTauri()) {
+    terminalOptions.value = [];
+    terminalOptionsError.value = false;
+    return;
+  }
+  if (terminalOptionsLoading.value) {
+    return;
+  }
+  terminalOptionsLoading.value = true;
+  terminalOptionsError.value = false;
+  try {
+    const options = await listTerminalEnvironments();
+    terminalOptions.value = Array.isArray(options) ? options : [];
+  } catch (error) {
+    console.error('Failed to load terminal environments.', error);
+    terminalOptionsError.value = true;
+    terminalOptions.value = [];
+  } finally {
+    terminalOptionsLoading.value = false;
+  }
+};
+
+const handleTerminalRefresh = () => {
+  triggerTerminalRefreshSpin();
+  void loadTerminalEnvironments();
+};
+
+const applyDefaultTerminalSelection = (name: string, path: string) => {
+  draftSettings.value.members.defaultTerminalName = name;
+  draftSettings.value.members.defaultTerminalPath = path;
+  persistMemberSettings(draftSettings.value.members);
+};
+
+const selectTerminalOption = (option: TerminalDisplayOption) => {
+  openTerminalMenuKey.value = null;
+  if (option.source === 'auto') {
+    applyDefaultTerminalSelection('', '');
+  } else {
+    applyDefaultTerminalSelection(option.label, option.path);
+  }
+  resetCustomTerminalForm();
+};
+
+const openCustomTerminalForm = () => {
+  openTerminalMenuKey.value = null;
+  const storedPath = selectedTerminalPath.value;
+  const storedKey = storedPath ? normalizeTerminalPathKey(storedPath) : '';
+  const detectedKeys = new Set(
+    terminalOptions.value.map((option) => normalizeTerminalPathKey(option.path))
+  );
+  const customEntry = storedPath ? resolveCustomTerminalEntry(storedPath) : null;
+  if (storedKey && (!detectedKeys.has(storedKey) || customEntry)) {
+    customTerminalName.value = customEntry?.name || selectedTerminalName.value;
+    customTerminalPath.value = customEntry?.path ?? storedPath;
+  } else {
+    customTerminalName.value = '';
+    customTerminalPath.value = '';
+  }
+  isAddingCustomTerminal.value = true;
+};
+
+const resetCustomTerminalForm = () => {
+  customTerminalName.value = '';
+  customTerminalPath.value = '';
+  isAddingCustomTerminal.value = false;
+};
+
+const applyCustomTerminal = () => {
+  const path = customTerminalPath.value.trim();
+  const name = customTerminalName.value.trim();
+  if (!path) {
+    return;
+  }
+  const resolvedName = name || resolveTerminalLabelFromPath(path) || t('settings.terminalCustom');
+  const nextMembers = cloneSettings(draftSettings.value).members;
+  nextMembers.defaultTerminalName = resolvedName;
+  nextMembers.defaultTerminalPath = path;
+  nextMembers.customTerminals = upsertCustomTerminals(
+    nextMembers.customTerminals ?? [],
+    resolvedName,
+    path
+  );
+  persistMemberSettings(nextMembers);
+  resetCustomTerminalForm();
+};
+
+const resolveTerminalMenuKeyFromPath = (path: string) => normalizeTerminalPathKey(path);
+
+const resolveTerminalMenuKey = (option: TerminalDisplayOption) => {
+  if (option.source === 'auto') {
+    return 'auto';
+  }
+  return resolveTerminalMenuKeyFromPath(option.path);
+};
+
+const removeCustomTerminal = (path: string) => {
+  const trimmed = path.trim();
+  if (!trimmed) {
+    return;
+  }
+  const key = resolveTerminalMenuKeyFromPath(trimmed);
+  if (openTerminalMenuKey.value === key) {
+    openTerminalMenuKey.value = null;
+  }
+  const nextMembers = cloneSettings(draftSettings.value).members;
+  const existing = nextMembers.customTerminals ?? [];
+  const filtered = existing.filter(
+    (entry) => resolveTerminalMenuKeyFromPath(entry.path) !== key
+  );
+  const isSelected =
+    resolveTerminalMenuKeyFromPath(nextMembers.defaultTerminalPath) === key;
+  if (!isSelected && filtered.length === existing.length) {
+    return;
+  }
+  nextMembers.customTerminals = filtered;
+  if (isSelected) {
+    nextMembers.defaultTerminalName = '';
+    nextMembers.defaultTerminalPath = '';
+  }
+  persistMemberSettings(nextMembers);
+};
+
+const toggleTerminalMenu = (option: TerminalDisplayOption) => {
+  const key = resolveTerminalMenuKey(option);
+  if (!key) {
+    openTerminalMenuKey.value = null;
+    return;
+  }
+  openTerminalMenuKey.value = openTerminalMenuKey.value === key ? null : key;
+};
+
+const hasTerminalMenu = (option: TerminalDisplayOption) =>
+  option.source === 'auto' || Boolean(option.path?.trim());
+
+const TERMINAL_READY_TIMEOUT_MS = 8000;
+
+const waitForTerminalWindowReady = async (windowLabel: string) => {
+  if (!isTauri() || !windowLabel) {
+    return false;
+  }
+  return new Promise<boolean>((resolve) => {
+    let settled = false;
+    let stopListener: (() => void) | null = null;
+    let timeoutId = 0;
+    const finish = (ready: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (stopListener) {
+        stopListener();
+        stopListener = null;
+      }
+      window.clearTimeout(timeoutId);
+      resolve(ready);
+    };
+    timeoutId = window.setTimeout(() => {
+      finish(false);
+    }, TERMINAL_READY_TIMEOUT_MS);
+    void listen<TerminalWindowReadyPayload>(TERMINAL_WINDOW_READY_EVENT, (event) => {
+      if (event.payload.windowLabel !== windowLabel) {
+        return;
+      }
+      finish(true);
+    }).then((stop) => {
+      stopListener = stop;
+      if (settled) {
+        stopListener();
+        stopListener = null;
+      }
+    });
+    void emitTo(windowLabel, TERMINAL_WINDOW_READY_REQUEST_EVENT, {}).catch(() => {});
+  });
+};
+
+const handleTerminalTest = async (option: TerminalDisplayOption) => {
+  openTerminalMenuKey.value = null;
+  const path = option.path?.trim();
+  const isAuto = option.source === 'auto';
+  if (!isAuto && !path) {
+    return;
+  }
+  try {
+    const workspace = currentWorkspace.value;
+    const terminalId = await createSession({
+      cwd: workspace?.path,
+      workspaceId: workspace?.id,
+      terminalType: 'shell',
+      terminalPath: isAuto ? undefined : path,
+      strictShell: true
+    });
+    const result = await openTerminalWindow({
+      workspaceId: workspace?.id,
+      workspaceName: workspace?.name,
+      workspacePath: workspace?.path,
+      autoTab: false
+    });
+    if (!result?.label) {
+      await closeSession(terminalId, { preserve: false }).catch(() => {});
+      throw new Error('terminal window unavailable');
+    }
+    const ready = await waitForTerminalWindowReady(result.label);
+    if (!ready) {
+      await closeSession(terminalId, { preserve: false }).catch(() => {});
+      throw new Error('terminal window not ready');
+    }
+    const title =
+      option.label?.trim() ||
+      (isAuto ? t('settings.terminalAuto') : resolveTerminalLabelFromPath(path ?? '')) ||
+      t('settings.terminalCustom');
+    const payload: TerminalOpenTabPayload = {
+      terminalId,
+      title,
+      terminalType: 'shell',
+      keepAlive: false
+    };
+    await emitTo(result.label, TERMINAL_OPEN_TAB_EVENT, payload).catch(async (error) => {
+      await closeSession(terminalId, { preserve: false }).catch(() => {});
+      throw error;
+    });
+  } catch (error) {
+    const parsed = parseTerminalError(error);
+    const message = parsed.message;
+    const key = resolveTerminalErrorI18nKey(parsed.code);
+    if (key === 'settings.terminalTestErrors.shellBinaryNotFound') {
+      pushToast(t(key, { path: parsed.detail?.path ?? message }), { tone: 'error' });
+    } else if (key) {
+      pushToast(t(key, { error: message }), { tone: 'error' });
+    } else {
+      pushToast(t('settings.terminalTestFailed', { error: message }), { tone: 'error' });
+    }
+    console.error('Failed to test terminal.', error, { terminalPath: option.path, source: option.source });
+  }
+};
+
+const startEditTerminal = (option: TerminalDisplayOption) => {
+  const entry = resolveCustomTerminalEntry(option.path);
+  if (!option.path) {
+    openTerminalMenuKey.value = null;
+    return;
+  }
+  customTerminalName.value = entry?.name || option.label;
+  customTerminalPath.value = entry?.path ?? option.path;
+  isAddingCustomTerminal.value = true;
+  openTerminalMenuKey.value = null;
+};
+
+const selectCustomTerminalPath = async () => {
+  if (!isTauri()) {
+    return;
+  }
+  try {
+    const selection = await open({ directory: false, multiple: false });
+    const path = Array.isArray(selection) ? selection[0] : selection;
+    if (!path) {
+      return;
+    }
+    customTerminalPath.value = path;
+    if (!customTerminalName.value.trim()) {
+      customTerminalName.value = resolveTerminalLabelFromPath(path);
+    }
+  } catch (error) {
+    console.error('Failed to select terminal executable.', error);
+  }
+};
+
 const resetMemberDraft = () => {
   const next = cloneSettings(settings.value);
   draftSettings.value.members = next.members;
   customName.value = '';
   customCommand.value = '';
   isAddingCustom.value = false;
+  resetCustomTerminalForm();
   openMemberMenuId.value = null;
+  openTerminalMenuKey.value = null;
   editingMemberId.value = null;
   syncDefaultMemberIndex();
+};
+
+const handleMemberRefresh = () => {
+  triggerMemberRefreshSpin();
+  resetMemberDraft();
 };
 
 const persistMemberSettings = (nextMembers: SettingsState['members']) => {
@@ -1275,56 +1924,20 @@ const notificationOptions: Array<{ key: NotificationToggleKey; labelKey: string;
   { key: 'sound', labelKey: 'settings.notificationOptions.sound', descriptionKey: 'settings.notificationOptions.soundDesc' },
   { key: 'mentionsOnly', labelKey: 'settings.notificationOptions.mentionsOnly', descriptionKey: 'settings.notificationOptions.mentionsOnlyDesc' },
   { key: 'previews', labelKey: 'settings.notificationOptions.previews', descriptionKey: 'settings.notificationOptions.previewsDesc' },
-  { key: 'weeklyDigest', labelKey: 'settings.notificationOptions.weeklyDigest', descriptionKey: 'settings.notificationOptions.weeklyDigestDesc' },
   { key: 'quietHoursEnabled', labelKey: 'settings.notificationOptions.quietHours', descriptionKey: 'settings.notificationOptions.quietHoursDesc' }
 ];
 
 const keybindProfiles: Array<{
   id: KeybindProfile;
   labelKey: string;
-  bindings: Array<{ actionKey: string; keys: string }>;
-}> = [
-  {
-    id: 'default',
-    labelKey: 'settings.keybindProfiles.default',
-    bindings: [
-      { actionKey: 'settings.keybindActions.focusSearch', keys: 'Ctrl + K' },
-      { actionKey: 'settings.keybindActions.newMessage', keys: 'Ctrl + Enter' },
-      { actionKey: 'settings.keybindActions.toggleSidebar', keys: 'Ctrl + B' },
-      { actionKey: 'settings.keybindActions.toggleMute', keys: 'Ctrl + Shift + M' },
-      { actionKey: 'settings.keybindActions.jumpToLatest', keys: 'Alt + J' },
-      { actionKey: 'settings.keybindActions.openSettings', keys: 'Ctrl + ,' }
-    ]
-  },
-  {
-    id: 'vscode',
-    labelKey: 'settings.keybindProfiles.vscode',
-    bindings: [
-      { actionKey: 'settings.keybindActions.focusSearch', keys: 'Ctrl + P' },
-      { actionKey: 'settings.keybindActions.newMessage', keys: 'Ctrl + Enter' },
-      { actionKey: 'settings.keybindActions.toggleSidebar', keys: 'Ctrl + B' },
-      { actionKey: 'settings.keybindActions.toggleMute', keys: 'Ctrl + Shift + M' },
-      { actionKey: 'settings.keybindActions.jumpToLatest', keys: 'Alt + End' },
-      { actionKey: 'settings.keybindActions.openSettings', keys: 'Ctrl + ,' }
-    ]
-  },
-  {
-    id: 'slack',
-    labelKey: 'settings.keybindProfiles.slack',
-    bindings: [
-      { actionKey: 'settings.keybindActions.focusSearch', keys: 'Ctrl + K' },
-      { actionKey: 'settings.keybindActions.newMessage', keys: 'Ctrl + N' },
-      { actionKey: 'settings.keybindActions.toggleSidebar', keys: 'Ctrl + Shift + S' },
-      { actionKey: 'settings.keybindActions.toggleMute', keys: 'Ctrl + Shift + M' },
-      { actionKey: 'settings.keybindActions.jumpToLatest', keys: 'Alt + J' },
-      { actionKey: 'settings.keybindActions.openSettings', keys: 'Ctrl + ,' }
-    ]
-  }
-];
+  bindings: Array<{ actionId: string; labelKey: string; keys: string | string[] }>;
+}> = KEYBIND_PROFILES;
 
 const activeKeybindProfile = computed(
   () => keybindProfiles.find((profile) => profile.id === draftSettings.value.keybinds.profile) ?? keybindProfiles[0]
 );
+
+const formatKeybindKeys = (keys: string | string[]) => (Array.isArray(keys) ? keys.join(' / ') : keys);
 
 const resetKeybinds = () => {
   draftSettings.value.keybinds = {
@@ -1334,6 +1947,7 @@ const resetKeybinds = () => {
   };
 };
 
+// 使用原生对话框提升可信度，非 Tauri 环境回退到浏览器确认框。
 const confirmDataAction = async (message: string, title: string) => {
   if (isTauri()) {
     return ask(message, {
@@ -1346,6 +1960,41 @@ const confirmDataAction = async (message: string, title: string) => {
   return window.confirm(message);
 };
 
+const handlePurgeTerminalFriends = async () => {
+  const workspaceId = currentWorkspace.value?.id;
+  if (!workspaceId) {
+    pushToast(t('settings.terminalFriends.noWorkspace'), { tone: 'warning' });
+    return;
+  }
+  if (purgingTerminalFriends.value) {
+    return;
+  }
+  const confirmMessage = t('settings.terminalFriends.confirmCurrent');
+  const confirmed = await confirmDataAction(confirmMessage, t('settings.terminalFriends.title'));
+  if (!confirmed) {
+    return;
+  }
+  purgingTerminalFriends.value = true;
+  try {
+    const result = await purgeProjectTerminalMembers(workspaceId, 'current');
+    if (result.warnings?.length) {
+      console.warn('Terminal friend purge warnings.', result.warnings);
+    }
+    if (currentWorkspace.value) {
+      await hydrate();
+    }
+    await loadSession();
+    const message = t('settings.terminalFriends.resultCurrent', { count: result.totalRemoved });
+    pushToast(message, { tone: 'success' });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    pushToast(message || t('settings.terminalFriends.failed'), { tone: 'error' });
+  } finally {
+    purgingTerminalFriends.value = false;
+  }
+};
+
+// 修复聊天数据库后需刷新会话，避免 UI 与数据不一致。
 const handleRepairChatDb = async () => {
   const workspaceId = currentWorkspace.value?.id;
   if (!workspaceId || repairingChatDb.value) return;
@@ -1368,6 +2017,7 @@ const handleRepairChatDb = async () => {
   }
 };
 
+// 清空聊天数据库后需重建会话与提示统计结果。
 const handleClearChatDb = async () => {
   const workspaceId = currentWorkspace.value?.id;
   if (!workspaceId || clearingChatDb.value) return;
@@ -1397,10 +2047,11 @@ const handleClearChatDb = async () => {
 const memberOptions = computed<MemberDisplayOption[]>(() => {
   const baseOptions = BASE_TERMINALS.map((member, index) => ({
     id: member.id,
-    label: t(member.nameKey),
+    label: resolveBaseTerminalLabel(member, t),
     command: member.command,
     kindLabel: t('settings.memberKind.default'),
     icon: member.icon,
+    iconKind: member.id === 'opencode' ? 'opencode' : member.id === 'qwen-code' ? 'qwen' : 'material',
     gradient: member.gradient,
     isCustom: false,
     isDeletable: false,
@@ -1414,6 +2065,7 @@ const memberOptions = computed<MemberDisplayOption[]>(() => {
     command: member.command,
     kindLabel: t('settings.memberKind.custom'),
     icon: CUSTOM_TERMINAL_ICON,
+    iconKind: 'material',
     isCustom: true,
     isDeletable: true,
     group: 1 as const,
@@ -1448,6 +2100,7 @@ const themePreview: Record<AppTheme, { base: string; panel: string; accent: stri
   }
 };
 
+// 平滑滚动到指定区域，期间暂时锁定自动高亮。
 const scrollToSection = (section: SectionId) => {
   const sectionMap: Record<SectionId, HTMLElement | null> = {
     account: accountRef.value,
@@ -1470,6 +2123,7 @@ const scrollToSection = (section: SectionId) => {
     window.clearTimeout(autoScrollTimeoutId.value);
   }
   contentRef.value.scrollTo({ top, behavior: 'smooth' });
+  // 800ms 为滚动动画的保守结束时间，避免过早解除锁定。
   autoScrollTimeoutId.value = window.setTimeout(() => {
     isAutoScrolling.value = false;
     targetScrollTop.value = null;
@@ -1477,16 +2131,19 @@ const scrollToSection = (section: SectionId) => {
   }, 800);
 };
 
+// 根据滚动位置估算当前聚焦分区，避免轻微滚动抖动。
 const updateActiveSection = () => {
   if (!contentRef.value) return;
   const container = contentRef.value;
   const containerTop = container.getBoundingClientRect().top;
+  // 0.35 与 200 用于限定视线焦点区，避免标题刚进入视口就被选中。
   const focusOffset = Math.min(container.clientHeight * 0.35, 200);
   const focusLine = container.scrollTop + focusOffset;
   const bottomDistance = container.scrollHeight - (container.scrollTop + container.clientHeight);
   let nextSection = sectionRefs[0]?.id ?? activeSection.value;
   let maxTop = -Infinity;
 
+  // 距离底部 80px 内强制落在最后分区，解决尾部无法选中问题。
   if (bottomDistance <= 80) {
     const lastSection = sectionRefs[sectionRefs.length - 1]?.id;
     if (lastSection) {
@@ -1509,6 +2166,7 @@ const updateActiveSection = () => {
   }
 };
 
+// 自动滚动期间通过目标位置判断结束，避免误触发手动滚动逻辑。
 const handleContentScroll = () => {
   if (!contentRef.value) return;
   if (!isAutoScrolling.value) {
@@ -1530,6 +2188,7 @@ const handleContentScroll = () => {
   if (autoScrollTimeoutId.value !== null) {
     window.clearTimeout(autoScrollTimeoutId.value);
   }
+  // 120ms 用于兜底结束自动滚动状态，避免卡死在锁定态。
   autoScrollTimeoutId.value = window.setTimeout(() => {
     isAutoScrolling.value = false;
     targetScrollTop.value = null;
@@ -1537,13 +2196,14 @@ const handleContentScroll = () => {
   }, 120);
 };
 
-const handleAvatarMenuOutside = (event: MouseEvent) => {
-  if (!avatarMenuOpen.value) return;
+const handleOverlayMenuOutside = (event: MouseEvent) => {
   const target = event.target as Node;
-  if (avatarMenuRef.value?.contains(target) || avatarButtonRef.value?.contains(target)) {
-    return;
+  if (avatarMenuOpen.value) {
+    if (avatarMenuRef.value?.contains(target) || avatarButtonRef.value?.contains(target)) {
+      return;
+    }
+    avatarMenuOpen.value = false;
   }
-  avatarMenuOpen.value = false;
 };
 
 onMounted(() => {
@@ -1551,8 +2211,8 @@ onMounted(() => {
     contentRef.value.addEventListener('scroll', handleContentScroll, { passive: true });
     updateActiveSection();
   }
-  document.addEventListener('mousedown', handleAvatarMenuOutside);
-  void migrateDataUrlAvatar();
+  document.addEventListener('mousedown', handleOverlayMenuOutside);
+  void loadTerminalEnvironments();
 });
 
 onBeforeUnmount(() => {
@@ -1560,6 +2220,40 @@ onBeforeUnmount(() => {
     window.clearTimeout(autoScrollTimeoutId.value);
   }
   contentRef.value?.removeEventListener('scroll', handleContentScroll);
-  document.removeEventListener('mousedown', handleAvatarMenuOutside);
+  document.removeEventListener('mousedown', handleOverlayMenuOutside);
 });
 </script>
+
+<style scoped>
+.member-icon-opencode {
+  font-family: 'Rajdhani', 'Orbitron', 'Share Tech Mono', 'Fira Mono', 'Consolas', monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  line-height: 1;
+  text-transform: lowercase;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  transform: translateY(1px);
+}
+
+.member-icon-qwen {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35));
+}
+
+.member-icon-qwen svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+</style>
+

@@ -1,2 +1,3 @@
+// 聊天系统固定标识：用于区分当前用户与内置助手。
 export const CURRENT_USER_ID = '01J00000000000000000000000';
 export const AI_ASSISTANT_ID = '01J00000000000000000000001';

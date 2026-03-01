@@ -1,19 +1,25 @@
 <template>
-  <div class="relative z-0 flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 group transition-all duration-200 group-hover:z-30">
+  <div
+    :class="[
+      'relative flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 group transition-all duration-200',
+      menuOpen ? 'z-40' : 'z-0 group-hover:z-30'
+    ]"
+  >
     <button
       type="button"
+      @mousedown.prevent
       @click.stop="handleAvatarClick"
-      :disabled="!canOpenTerminal"
+      :aria-disabled="!canOpenTerminal"
       :class="[
-        'relative transition-all duration-300 focus:outline-none',
-        member.status === 'offline' ? 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100' : '',
+        'member-avatar-button relative transition-all duration-300 focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0',
+        resolvedStatus === 'offline' ? 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100' : '',
         canOpenTerminal ? 'cursor-pointer' : 'cursor-default'
       ]"
     >
-      <AvatarBadge :avatar="member.avatar" :label="member.name" class="w-10 h-10 rounded-full shadow-md" />
+      <AvatarBadge :avatar="member.avatar" :label="displayName" class="w-10 h-10 rounded-full shadow-md" />
       <MemberStatusDots
         class="absolute -bottom-0.5 -right-0.5"
-        :status="member.status"
+        :status="resolvedStatus"
         :terminal-status="member.terminalStatus"
         :show-terminal-status="canOpenTerminal"
       />
@@ -21,7 +27,7 @@
     <div class="flex items-center justify-between gap-2 min-w-0 flex-1">
       <div class="flex flex-col min-w-0">
         <div class="flex items-center gap-2">
-          <span :class="[member.roleType === 'owner' ? 'text-primary font-bold' : 'text-white font-medium group-hover:text-primary', 'text-[13px] leading-none transition-colors']">{{ member.name }}</span>
+          <span :class="[member.roleType === 'owner' ? 'text-primary font-bold' : 'text-white font-medium group-hover:text-primary', 'text-[13px] leading-none transition-colors']">{{ displayName }}</span>
           <span v-if="member.roleType === 'owner'" class="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-500 text-[9px] rounded border border-yellow-500/20 font-bold uppercase tracking-wide">{{ t('members.roles.owner') }}</span>
           <span v-if="member.roleType === 'admin'" class="px-1.5 py-0.5 bg-primary/20 text-primary text-[9px] rounded border border-primary/20 font-bold uppercase tracking-wide">{{ t('members.roles.admin') }}</span>
         </div>
@@ -85,7 +91,7 @@
           >
             <span :class="['w-2.5 h-2.5 rounded-full', option.dotClass]"></span>
             {{ t(option.labelKey) }}
-            <span v-if="member.status === option.id" class="material-symbols-outlined text-[16px] ml-auto text-white/60">check</span>
+            <span v-if="resolvedStatus === option.id" class="material-symbols-outlined text-[16px] ml-auto text-white/60">check</span>
           </button>
           <template v-if="canRemove">
             <div class="h-px bg-white/10 my-1 mx-2"></div>
@@ -105,12 +111,15 @@
 </template>
 
 <script setup lang="ts">
+// 成员行组件：展示单个成员信息与操作入口。
 import { computed, toRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Member, MemberActionPayload, MemberStatus } from '../types';
 import AvatarBadge from '@/shared/components/AvatarBadge.vue';
 import MemberStatusDots from './MemberStatusDots.vue';
 import { hasTerminalConfig } from '@/shared/utils/terminal';
+import { logDiagnosticsEvent } from '@/shared/monitoring/diagnostics/logger';
+import { resolveMemberDisplayName } from '@/shared/utils/memberDisplay';
 
 const props = defineProps<{ member: Member; menuOpen?: boolean; currentUserId?: string }>();
 const emit = defineEmits<{
@@ -125,6 +134,8 @@ const isCurrentUser = computed(() => (props.currentUserId ? member.value.id === 
 const canMention = computed(() => !isCurrentUser.value);
 const canRename = computed(() => !isCurrentUser.value);
 const canOpenTerminal = computed(() => hasTerminalConfig(member.value.terminalType, member.value.terminalCommand));
+const displayName = computed(() => resolveMemberDisplayName(member.value));
+const resolvedStatus = computed(() => member.value.manualStatus ?? member.value.status);
 
 const { t } = useI18n();
 
@@ -132,7 +143,7 @@ const baseStatusOptions: Array<{ id: MemberStatus; labelKey: string; dotClass: s
   { id: 'online', labelKey: 'settings.statusOptions.online', dotClass: 'bg-green-500' },
   { id: 'working', labelKey: 'settings.statusOptions.working', dotClass: 'bg-amber-400' },
   { id: 'dnd', labelKey: 'settings.statusOptions.dnd', dotClass: 'bg-red-500' },
-  { id: 'offline', labelKey: 'settings.statusOptions.offline', dotClass: 'bg-white/30' }
+  { id: 'offline', labelKey: 'settings.statusOptions.offline', dotClass: 'bg-slate-500' }
 ];
 const menuStatusOptions = computed(() =>
   canOpenTerminal.value ? baseStatusOptions.filter((option) => option.id !== 'working') : baseStatusOptions
@@ -143,16 +154,27 @@ const displayRole = computed(() => {
     const match = baseStatusOptions.find((option) => option.id === member.value.status);
     return match ? t(match.labelKey) : '';
   }
+  if (member.value.roleType === 'assistant') {
+    return t('members.roles.member');
+  }
   if (member.value.roleKey) {
     return t(member.value.roleKey);
   }
   return member.value.role;
 });
 
-const handleAvatarClick = () => {
+const handleAvatarClick = (event?: MouseEvent) => {
+  const target = event?.currentTarget as HTMLElement | null;
+  target?.blur();
   if (!canOpenTerminal.value) {
     return;
   }
+  void logDiagnosticsEvent('avatar-click', {
+    memberId: member.value.id,
+    terminalType: member.value.terminalType,
+    terminalCommand: member.value.terminalCommand
+  });
   emit('action', { action: 'open-terminal', member: member.value });
 };
 </script>
+

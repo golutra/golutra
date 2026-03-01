@@ -1,30 +1,43 @@
+// 聊天状态管理：负责会话列表、消息流与终端联动。
 import { computed, ref, watch } from 'vue';
 import { acceptHMRUpdate, defineStore, storeToRefs } from 'pinia';
-import { AI_ASSISTANT_ID, CURRENT_USER_ID } from './data';
+import { CURRENT_USER_ID } from './data';
 import { DEFAULT_AVATAR } from '@/shared/constants/avatars';
 import { buildSeededAvatar, ensureAvatar } from '@/shared/utils/avatar';
+import { buildGroupConversationTitle } from './utils';
+import { i18n } from '@/i18n';
 import { useSettingsStore } from '@/features/global/settingsStore';
 import type { Conversation, Member, Message, MessageContent, MessageMentionsPayload } from './types';
 import { useWorkspaceStore } from '@/features/workspace/workspaceStore';
 import { useProjectStore } from '@/features/workspace/projectStore';
-import { useTerminalMemberStore, type TerminalDispatchRequest } from '@/features/terminal/terminalMemberStore';
-import { hasTerminalConfig } from '@/shared/utils/terminal';
-import type { ChatMessageCreatedPayload, ConversationDto, MessageDto } from './chatBridge';
+import { logDiagnosticsEvent } from '@/shared/monitoring/diagnostics/logger';
+import { isTauri } from '@tauri-apps/api/core';
+import type {
+  ChatMessageCreatedPayload,
+  ChatMessageStatusPayload,
+  ChatDispatchMentions,
+  ChatUnreadSyncPayload,
+  ConversationDto,
+  MessageDto
+} from './chatBridge';
 import {
   clearConversation as clearConversationRemote,
   createGroupConversation as createGroupConversationRemote,
   deleteConversation as deleteConversationRemote,
   ensureDirectConversation,
+  generateUlid,
   getConversationMessages,
   listConversations,
   markConversationRead as markConversationReadRemote,
+  onChatMessageStatus,
+  onChatUnreadSync,
   renameConversation as renameConversationRemote,
-  sendConversationMessage,
+  sendConversationMessageAndDispatch,
   setConversationMembers as setConversationMembersRemote,
   setConversationSettings as setConversationSettingsRemote
 } from './chatBridge';
 
-const ASSISTANT_REPLY_DELAY = 900;
+// 延迟与分页参数用于控制 UI 节奏与一次加载上限。
 const MAX_MESSAGE_LENGTH = 1200;
 const MESSAGES_PAGE_LIMIT = 200;
 
@@ -60,21 +73,47 @@ const resolvePreviewText = (content: MessageContent) => {
 
 const formatError = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+// 防止并发加载覆盖状态的序号标记。
 let loadSequence = 0;
+let unreadSyncListenerBound = false;
+let messageStatusListenerBound = false;
 
+// readThrough：前台阅读时触发已读同步，未读以服务端为准。
+type TerminalMessageOptions = { readThrough?: boolean };
+type PendingTerminalMessage = { payload: ChatMessageCreatedPayload; readThrough: boolean };
+type TerminalStreamPayload = {
+  terminalId: string;
+  memberId?: string;
+  workspaceId?: string;
+  conversationId?: string;
+  conversationType?: string;
+  senderId?: string;
+  senderName?: string;
+  seq: number;
+  timestamp: number;
+  content: string;
+  type?: string;
+  source?: string;
+  mode?: string;
+  spanId?: string;
+};
+
+/**
+ * 聊天状态存储。
+ * 输入：会话加载、消息发送与会话操作。
+ * 输出：会话列表与操作方法。
+ */
 export const useChatStore = defineStore('chat', () => {
   const workspaceStore = useWorkspaceStore();
   const projectStore = useProjectStore();
   const settingsStore = useSettingsStore();
-  const terminalMemberStore = useTerminalMemberStore();
   const { currentWorkspace } = storeToRefs(workspaceStore);
   const { members } = storeToRefs(projectStore);
   const { settings } = storeToRefs(settingsStore);
-  const { enqueueTerminalDispatch } = terminalMemberStore;
+  const streamOutputEnabled = computed(() => settings.value.chat.streamOutput);
 
   const defaultState = () => ({
     conversations: [] as Conversation[],
-    assistantTypingConversationId: null as string | null,
     isReady: false,
     chatError: null as string | null,
     defaultChannelId: null as string | null,
@@ -82,13 +121,12 @@ export const useChatStore = defineStore('chat', () => {
   });
 
   const conversations = ref<Conversation[]>(defaultState().conversations);
-  const assistantTypingConversationId = ref<string | null>(defaultState().assistantTypingConversationId);
-  const assistantReplyTimeoutId = ref<number | null>(null);
   const isReady = ref(defaultState().isReady);
   const chatError = ref<string | null>(defaultState().chatError);
   const defaultChannelId = ref<string | null>(defaultState().defaultChannelId);
   const totalUnreadCount = ref<number>(defaultState().totalUnreadCount);
-  const pendingTerminalMessages = ref<ChatMessageCreatedPayload[]>([]);
+  const pendingTerminalMessages = ref<PendingTerminalMessage[]>([]);
+  const streamMessageIds = new Map<string, string>();
   const loadedMessages = new Set<string>();
   const loadingMessages = new Set<string>();
   const conversationPaging = new Map<string, { hasMore: boolean; loading: boolean }>();
@@ -98,18 +136,37 @@ export const useChatStore = defineStore('chat', () => {
   );
   const currentUserId = computed(() => currentUser.value?.id ?? CURRENT_USER_ID);
   const accountAvatar = computed(() => ensureAvatar(settings.value.account.avatar));
-  const assistantMember = computed(
-    () =>
-      members.value.find((member) => member.id === AI_ASSISTANT_ID) ??
-      members.value.find((member) => member.roleType === 'assistant') ??
-      null
-  );
   const resolveSenderName = () => {
     const displayName = settings.value.account.displayName.trim();
     if (displayName) {
       return displayName;
     }
     return currentUser.value?.name ?? 'Owner';
+  };
+
+  const resolveConversationTitle = (conversation: Conversation) => {
+    if (conversation.type === 'dm') {
+      const targetId = conversation.targetId ?? '';
+      const target = members.value.find((member) => member.id === targetId);
+      return target?.name ?? 'Member';
+    }
+    const workspaceLabel = currentWorkspace.value?.name?.trim();
+    if ((conversation.isDefault || conversation.id === defaultChannelId.value) && workspaceLabel) {
+      return workspaceLabel;
+    }
+    if (conversation.customName) {
+      return conversation.customName;
+    }
+    if (conversation.nameKey) {
+      return i18n.global.t(conversation.nameKey);
+    }
+    const groupTitle = buildGroupConversationTitle(
+      conversation.memberIds,
+      members.value,
+      currentUserId.value,
+      25
+    );
+    return groupTitle || conversation.id;
   };
 
   const normalizeConversation = (dto: ConversationDto): Conversation => {
@@ -130,6 +187,10 @@ export const useChatStore = defineStore('chat', () => {
       muted: Boolean(dto.muted),
       lastMessageAt: dto.lastMessageAt ?? undefined,
       lastMessagePreview: dto.lastMessagePreview ?? undefined,
+      lastMessageSenderId: undefined,
+      lastMessageSenderName: undefined,
+      lastMessageSenderAvatar: undefined,
+      lastMessageAttachment: undefined,
       isDefault: dto.isDefault ?? false,
       unreadCount: dto.unreadCount ?? 0,
       messages: []
@@ -186,58 +247,158 @@ export const useChatStore = defineStore('chat', () => {
     conversations.value = sortConversations(conversations.value);
   };
 
+  // 以服务端未读为真相，收到同步事件后覆盖本地状态。
+  const applyUnreadSync = (payload: ChatUnreadSyncPayload) => {
+    if (!payload) {
+      return;
+    }
+    const workspaceId = currentWorkspace.value?.id;
+    if (!workspaceId || payload.workspaceId !== workspaceId) {
+      return;
+    }
+    if (typeof payload.totalUnreadCount === 'number') {
+      totalUnreadCount.value = payload.totalUnreadCount;
+    }
+    if (payload.resetAll) {
+      conversations.value = conversations.value.map((conversation) => ({
+        ...conversation,
+        unreadCount: 0
+      }));
+      return;
+    }
+    const conversationId = payload.conversationId?.trim();
+    if (!conversationId) {
+      return;
+    }
+    if (typeof payload.conversationUnreadCount !== 'number') {
+      return;
+    }
+    updateConversation(conversationId, (conversation) => ({
+      ...conversation,
+      unreadCount: payload.conversationUnreadCount ?? 0
+    }));
+  };
+
+  const applyMessageStatus = (payload: ChatMessageStatusPayload) => {
+    if (!payload) {
+      return;
+    }
+    const workspaceId = currentWorkspace.value?.id;
+    if (!workspaceId || payload.workspaceId !== workspaceId) {
+      return;
+    }
+    const conversationId = payload.conversationId?.trim();
+    if (!conversationId) {
+      return;
+    }
+    updateConversation(conversationId, (conversation) => ({
+      ...conversation,
+      messages: conversation.messages.map((message) =>
+        message.id === payload.messageId ? { ...message, status: payload.status } : message
+      )
+    }));
+  };
+
+  const registerUnreadSyncListener = () => {
+    if (!isTauri() || unreadSyncListenerBound) {
+      return;
+    }
+    unreadSyncListenerBound = true;
+    onChatUnreadSync((payload) => {
+      applyUnreadSync(payload);
+    });
+  };
+
+  const registerMessageStatusListener = () => {
+    if (!isTauri() || messageStatusListenerBound) {
+      return;
+    }
+    messageStatusListenerBound = true;
+    onChatMessageStatus((payload) => {
+      applyMessageStatus(payload);
+    });
+  };
+
   const applyMessageToConversation = (conversationId: string, message: Message) => {
     updateConversation(conversationId, (conversation) => {
       const messages = [...conversation.messages, message];
-      const currentUnread = conversation.unreadCount ?? 0;
-      const nextUnreadCount =
-        message.senderId && message.senderId === currentUserId.value ? 0 : currentUnread + 1;
+      const senderName =
+        message.user ||
+        (message.senderId
+          ? members.value.find((candidate) => candidate.id === message.senderId)?.name
+          : undefined) ||
+        (message.isAi ? 'Assistant' : 'Member');
       return {
         ...conversation,
         messages,
         lastMessageAt: message.createdAt,
         lastMessagePreview: resolvePreviewText(message.content),
-        unreadCount: nextUnreadCount
+        lastMessageSenderId: message.senderId,
+        lastMessageSenderName: senderName,
+        lastMessageSenderAvatar: message.avatar,
+        lastMessageAttachment: message.attachment,
+        unreadCount: conversation.unreadCount
       };
     });
     updateConversationOrder();
   };
 
-  const resolveTerminalTargets = (conversation: Conversation, mentions?: MessageMentionsPayload) => {
-    const memberMap = new Map(members.value.map((member) => [member.id, member]));
-    const isTerminalMember = (memberId: string) => {
-      if (memberId === currentUserId.value) {
-        return false;
-      }
-      const member = memberMap.get(memberId);
-      if (!member) {
-        return false;
-      }
-      return hasTerminalConfig(member.terminalType, member.terminalCommand);
+  const buildStreamMessageId = (spanId: string) => `terminal-stream:${spanId}`;
+
+  const applyTerminalStreamMessage = (payload: TerminalStreamPayload) => {
+    if (!payload || payload.mode === 'final') {
+      return;
+    }
+    if (!streamOutputEnabled.value) {
+      return;
+    }
+    const conversationId = payload.conversationId?.trim();
+    const spanId = payload.spanId?.trim();
+    if (!conversationId || !spanId) {
+      return;
+    }
+    const workspaceId = currentWorkspace.value?.id;
+    if (!workspaceId || (payload.workspaceId && payload.workspaceId !== workspaceId)) {
+      return;
+    }
+    if (!loadedMessages.has(conversationId)) {
+      return;
+    }
+    const rawText = payload.content ?? '';
+    const text = payload.mode === 'delta' ? rawText : rawText.trimEnd();
+    if (!text) {
+      return;
+    }
+    const messageId = streamMessageIds.get(spanId) ?? buildStreamMessageId(spanId);
+    streamMessageIds.set(spanId, messageId);
+    const dto: MessageDto = {
+      id: messageId,
+      senderId: payload.memberId,
+      content: { type: 'text', text },
+      createdAt: payload.timestamp || Date.now(),
+      isAi: false,
+      status: 'sending'
     };
-
-    if (conversation.type === 'dm') {
-      const targetId =
-        conversation.targetId ?? conversation.memberIds.find((id) => id !== currentUserId.value) ?? '';
-      if (!targetId || !isTerminalMember(targetId)) {
-        return [];
+    const message = normalizeMessage(dto);
+    updateConversation(conversationId, (conversation) => {
+      const messages = [...conversation.messages];
+      const index = messages.findIndex((item) => item.id === messageId);
+      if (index >= 0) {
+        const current = messages[index];
+        const currentText = current.content.type === 'text' ? current.content.text : '';
+        const nextText = payload.mode === 'delta' ? `${currentText}${text}` : text;
+        messages[index] = {
+          ...current,
+          content: { type: 'text', text: nextText }
+        };
+      } else {
+        messages.push(message);
       }
-      return [targetId];
-    }
-
-    if (!mentions) {
-      return [];
-    }
-    const mentionIds = uniqueMemberIds(mentions.mentionIds ?? []);
-    if (!mentions.mentionAll && mentionIds.length === 0) {
-      return [];
-    }
-    const memberSet = new Set(conversation.memberIds ?? []);
-    const sourceIds = mentions.mentionAll ? conversation.memberIds : mentionIds;
-    if (mentions.mentionAll) {
-      // TODO(seekskyworld): Notify admin user on @all without triggering terminal events (single-user mode only).
-    }
-    return uniqueMemberIds(sourceIds).filter((id) => memberSet.has(id)).filter(isTerminalMember);
+      return {
+        ...conversation,
+        messages
+      };
+    });
   };
 
   const setConversationMessages = (conversationId: string, messages: Message[]) => {
@@ -247,6 +408,11 @@ export const useChatStore = defineStore('chat', () => {
     }));
   };
 
+  /**
+   * 获取会话分页状态，必要时初始化默认值。
+   * 输入：conversationId。
+   * 输出：分页状态对象。
+   */
   const getPagingState = (conversationId: string) => {
     const state = conversationPaging.get(conversationId);
     if (state) {
@@ -263,6 +429,11 @@ export const useChatStore = defineStore('chat', () => {
     conversationPaging.set(conversationId, state);
   };
 
+  /**
+   * 加载会话列表与首页统计。
+   * 输入：无（依赖当前工作区）。
+   * 输出：更新 conversations/isReady 等状态。
+   */
   const loadSession = async () => {
     const workspace = currentWorkspace.value;
     if (!workspace) {
@@ -311,6 +482,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  /**
+   * 加载会话消息首屏。
+   * 输入：conversationId 与可选强制刷新标记。
+   * 输出：无；失败时记录错误。
+   */
   const loadConversationMessages = async (conversationId: string, force = false) => {
     const workspaceId = currentWorkspace.value?.id;
     if (!workspaceId || !conversationId) return;
@@ -339,6 +515,50 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  /**
+   * 仅补齐会话的最新消息元信息，不改写消息列表。
+   * 输入：conversationId。
+   * 输出：最新消息或 null。
+   */
+  const ensureConversationLatestMessage = async (conversationId: string) => {
+    const workspaceId = currentWorkspace.value?.id;
+    if (!workspaceId || !conversationId) return null;
+    const conversation = conversations.value.find((item) => item.id === conversationId);
+    if (!conversation) return null;
+    if (conversation.lastMessageSenderId || conversation.lastMessageSenderName || conversation.lastMessageSenderAvatar) {
+      return null;
+    }
+    try {
+      const dtos = await getConversationMessages(workspaceId, conversationId, 1);
+      if (!dtos.length) return null;
+      const message = normalizeMessage(dtos[0]);
+      const senderName =
+        message.user ||
+        (message.senderId
+          ? members.value.find((candidate) => candidate.id === message.senderId)?.name
+          : undefined) ||
+        (message.isAi ? 'Assistant' : 'Member');
+      updateConversation(conversationId, (item) => ({
+        ...item,
+        lastMessageAt: message.createdAt,
+        lastMessagePreview: resolvePreviewText(message.content),
+        lastMessageSenderId: message.senderId,
+        lastMessageSenderName: senderName,
+        lastMessageSenderAvatar: message.avatar,
+        lastMessageAttachment: message.attachment
+      }));
+      return message;
+    } catch (error) {
+      console.error('Failed to load latest conversation message.', error);
+      return null;
+    }
+  };
+
+  /**
+   * 加载更早的会话消息。
+   * 输入：conversationId。
+   * 输出：无；无更多数据时更新 hasMore。
+   */
   const loadOlderMessages = async (conversationId: string) => {
     const workspaceId = currentWorkspace.value?.id;
     if (!workspaceId || !conversationId) return;
@@ -379,85 +599,49 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
-  const queueAssistantReply = (prompt: string, conversationId: string) => {
-    if (assistantReplyTimeoutId.value !== null) {
-      window.clearTimeout(assistantReplyTimeoutId.value);
-    }
-    assistantTypingConversationId.value = conversationId;
-    const replyKey = prompt.includes('?') ? 'chat.messages.autoReplyQuestion' : 'chat.messages.autoReply';
-
-    assistantReplyTimeoutId.value = window.setTimeout(async () => {
-      try {
-        const workspaceId = currentWorkspace.value?.id;
-        if (!workspaceId) return;
-        const assistantId = assistantMember.value?.id ?? AI_ASSISTANT_ID;
-        const result = await sendConversationMessage(
-          workspaceId,
-          conversationId,
-          assistantId,
-          { type: 'system', key: replyKey },
-          true
-        );
-        const message = normalizeMessage(result);
-        applyMessageToConversation(conversationId, message);
-      } catch (error) {
-        console.error('Failed to send assistant reply.', error);
-      } finally {
-        assistantTypingConversationId.value = null;
-        assistantReplyTimeoutId.value = null;
-      }
-    }, ASSISTANT_REPLY_DELAY);
-  };
-
-  const cancelAssistantReply = () => {
-    if (assistantReplyTimeoutId.value !== null) {
-      window.clearTimeout(assistantReplyTimeoutId.value);
-      assistantReplyTimeoutId.value = null;
-    }
-    assistantTypingConversationId.value = null;
-  };
-
+  /**
+   * 发送消息并同步到会话列表。
+   * 输入：文本、会话 id 与可选提及信息。
+   * 输出：发送后的消息或 null。
+   */
   const sendMessage = async (payload: { text: string; conversationId: string; mentions?: MessageMentionsPayload }) => {
     const trimmed = payload.text.trim();
     if (!trimmed) return null;
     const workspaceId = currentWorkspace.value?.id;
+    const workspacePath = currentWorkspace.value?.path;
     if (!workspaceId) return null;
+    if (!workspacePath) return null;
     const conversation = conversations.value.find((item) => item.id === payload.conversationId);
     if (!conversation) return null;
 
     const text = trimmed.slice(0, MAX_MESSAGE_LENGTH);
     try {
-      const result = await sendConversationMessage(
+      const senderName = resolveSenderName();
+      const messageId = isTauri() ? await generateUlid() : crypto.randomUUID();
+      const clientTraceId = isTauri() ? await generateUlid() : crypto.randomUUID();
+      const mentions: ChatDispatchMentions = payload.mentions ?? { mentionIds: [], mentionAll: false };
+      const result = await sendConversationMessageAndDispatch({
         workspaceId,
-        payload.conversationId,
-        currentUserId.value,
-        { type: 'text', text },
-        false
-      );
+        workspacePath,
+        conversationId: payload.conversationId,
+        conversationType: conversation.type,
+        text,
+        senderId: currentUserId.value,
+        senderName,
+        mentions,
+        messageId,
+        clientTraceId,
+        timestamp: Date.now()
+      });
       const message = normalizeMessage(result);
       applyMessageToConversation(payload.conversationId, message);
-
-      if (assistantMember.value) {
-        queueAssistantReply(text, payload.conversationId);
-      }
-
-      const targets = resolveTerminalTargets(conversation, payload.mentions);
-      if (targets.length > 0) {
-        const senderName = resolveSenderName();
-        for (const memberId of targets) {
-          const request: TerminalDispatchRequest = {
-            memberId,
-            conversationId: conversation.id,
-            conversationType: conversation.type,
-            senderId: currentUserId.value,
-            senderName,
-            text
-          };
-          void enqueueTerminalDispatch(request).catch((error) => {
-            console.error('Failed to dispatch terminal message.', error);
-          });
-        }
-      }
+      void logDiagnosticsEvent('send-message', {
+        conversationId: payload.conversationId,
+        messageId: message.id,
+        senderId: currentUserId.value,
+        text,
+        mentions: payload.mentions ?? null
+      });
 
       return message;
     } catch (error) {
@@ -466,27 +650,86 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
-  const appendTerminalMessage = (payload: ChatMessageCreatedPayload) => {
+  /**
+   * 追加终端输出消息到会话。
+   * 输入：终端消息 payload。
+   * 输出：无；未就绪时进入队列缓冲。
+   */
+  const applyTerminalFinalMessage = (
+    payload: ChatMessageCreatedPayload,
+    options?: TerminalMessageOptions
+  ) => {
     if (!payload || !payload.conversationId) {
       return;
     }
+    const readThrough = Boolean(options?.readThrough);
     if (!isReady.value) {
-      pendingTerminalMessages.value.push(payload);
+      pendingTerminalMessages.value.push({ payload, readThrough });
       return;
     }
     const workspaceId = currentWorkspace.value?.id;
     if (!workspaceId) return;
     if (payload.workspaceId && payload.workspaceId !== workspaceId) return;
     const conversationId = payload.conversationId;
+    const spanId = payload.spanId?.trim();
+    const streamMessageId = spanId ? streamMessageIds.get(spanId) : null;
+    if (spanId) {
+      streamMessageIds.delete(spanId);
+    }
     const conversation = conversations.value.find((item) => item.id === conversationId);
     if (!conversation) return;
     const message = normalizeMessage(payload.message);
-    applyMessageToConversation(conversationId, message);
-    if (typeof payload.totalUnreadCount === 'number') {
-      totalUnreadCount.value = payload.totalUnreadCount;
+    if (streamMessageId) {
+      updateConversation(conversationId, (current) => {
+        const messages = [...current.messages];
+        const index = messages.findIndex((item) => item.id === streamMessageId);
+        if (index >= 0) {
+          messages[index] = message;
+        } else {
+          messages.push(message);
+        }
+        const senderName =
+          message.user ||
+          (message.senderId
+            ? members.value.find((candidate) => candidate.id === message.senderId)?.name
+            : undefined) ||
+          (message.isAi ? 'Assistant' : 'Member');
+        return {
+          ...current,
+          messages,
+          lastMessageAt: message.createdAt,
+          lastMessagePreview: resolvePreviewText(message.content),
+          lastMessageSenderId: message.senderId,
+          lastMessageSenderName: senderName,
+          lastMessageSenderAvatar: message.avatar,
+          lastMessageAttachment: message.attachment,
+          unreadCount: current.unreadCount
+        };
+      });
+      updateConversationOrder();
+    } else {
+      applyMessageToConversation(conversationId, message);
+    }
+    void logDiagnosticsEvent('append-terminal-message', {
+      conversationId,
+      messageId: message.id,
+      senderId: message.senderId,
+      content: message.content
+    });
+    if (readThrough) {
+      // 前台消息直接触发已读同步，未读以服务端广播为准。
+      void markConversationRead(conversationId);
     }
   };
 
+  const appendTerminalMessage = (payload: ChatMessageCreatedPayload, options?: TerminalMessageOptions) =>
+    applyTerminalFinalMessage(payload, options);
+
+  /**
+   * 确保与指定成员的私聊会话存在。
+   * 输入：成员 id。
+   * 输出：会话 id 或 null。
+   */
   const ensureDirectMessage = async (memberId: string) => {
     if (!memberId || memberId === currentUserId.value) return null;
     if (!members.value.some((member) => member.id === memberId)) return null;
@@ -512,6 +755,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  /**
+   * 创建群聊会话。
+   * 输入：成员 id 列表与可选名称。
+   * 输出：会话对象或 null。
+   */
   const createGroupConversation = async (memberIds: string[], customName?: string | null) => {
     const workspaceId = currentWorkspace.value?.id;
     if (!workspaceId) return null;
@@ -533,6 +781,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  /**
+   * 更新会话成员列表。
+   * 输入：conversationId 与成员 id 列表。
+   * 输出：无。
+   */
   const setConversationMembers = async (conversationId: string, memberIds: string[]) => {
     const workspaceId = currentWorkspace.value?.id;
     if (!workspaceId) return;
@@ -541,6 +794,10 @@ export const useChatStore = defineStore('chat', () => {
       ...conversation,
       memberIds: nextMembers
     }));
+    void logDiagnosticsEvent('set-conversation-members', {
+      conversationId,
+      memberIds: nextMembers
+    });
     try {
       await setConversationMembersRemote(workspaceId, conversationId, nextMembers);
     } catch (error) {
@@ -548,6 +805,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  /**
+   * 切换会话置顶状态。
+   * 输入：conversationId。
+   * 输出：无。
+   */
   const toggleConversationPin = async (conversationId: string) => {
     const conversation = conversations.value.find((item) => item.id === conversationId);
     if (!conversation) return;
@@ -563,6 +825,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  /**
+   * 切换会话静音状态。
+   * 输入：conversationId。
+   * 输出：无。
+   */
   const toggleConversationMute = async (conversationId: string) => {
     const conversation = conversations.value.find((item) => item.id === conversationId);
     if (!conversation) return;
@@ -577,6 +844,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  /**
+   * 重命名会话。
+   * 输入：conversationId 与新名称。
+   * 输出：无。
+   */
   const renameConversation = async (conversationId: string, name: string) => {
     const trimmed = name.trim();
     updateConversation(conversationId, (conversation) => ({
@@ -593,6 +865,11 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  /**
+   * 清空会话消息。
+   * 输入：conversationId。
+   * 输出：无。
+   */
   const clearConversationMessages = async (conversationId: string) => {
     updateConversation(conversationId, (conversation) => ({
       ...conversation,
@@ -618,6 +895,11 @@ export const useChatStore = defineStore('chat', () => {
     conversationPaging.delete(conversationId);
   };
 
+  /**
+   * 删除会话并清理本地缓存。
+   * 输入：conversationId。
+   * 输出：无。
+   */
   const deleteConversation = async (conversationId: string) => {
     deleteConversationLocal(conversationId);
     try {
@@ -629,16 +911,13 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  /**
+   * 标记会话已读并等待服务端同步未读数。
+   * 输入：conversationId。
+   * 输出：无。
+   */
   const markConversationRead = async (conversationId: string) => {
     if (!conversationId) return;
-    updateConversation(conversationId, (conversation) => ({
-      ...conversation,
-      unreadCount: 0
-    }));
-    totalUnreadCount.value = conversations.value.reduce(
-      (sum, conversation) => sum + (conversation.unreadCount ?? 0),
-      0
-    );
     const workspaceId = currentWorkspace.value?.id;
     if (!workspaceId) return;
     try {
@@ -648,6 +927,25 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  /**
+   * 批量标记所有会话已读。
+   * 输入：无。
+   * 输出：无。
+   */
+  const markAllConversationsRead = async () => {
+    const targets = conversations.value
+      .filter((conversation) => (conversation.unreadCount ?? 0) > 0)
+      .map((conversation) => conversation.id);
+    for (const conversationId of targets) {
+      await markConversationRead(conversationId);
+    }
+  };
+
+  /**
+   * 删除与指定成员相关的私聊会话。
+   * 输入：成员 id。
+   * 输出：无。
+   */
   const deleteMemberConversations = async (memberId: string) => {
     if (!memberId || memberId === currentUserId.value) return;
     const targets = conversations.value
@@ -752,21 +1050,22 @@ export const useChatStore = defineStore('chat', () => {
     }
   };
 
+  /**
+   * 重置聊天状态并清理定时器/缓存。
+   * 输入：无。
+   * 输出：无。
+   */
   const reset = () => {
     isReady.value = false;
     chatError.value = null;
     pendingTerminalMessages.value = [];
+    streamMessageIds.clear();
     defaultChannelId.value = null;
     totalUnreadCount.value = 0;
     conversations.value = [];
     loadedMessages.clear();
     loadingMessages.clear();
     conversationPaging.clear();
-    if (assistantReplyTimeoutId.value !== null) {
-      window.clearTimeout(assistantReplyTimeoutId.value);
-      assistantReplyTimeoutId.value = null;
-    }
-    assistantTypingConversationId.value = null;
     loadSequence += 1;
   };
 
@@ -793,8 +1092,8 @@ export const useChatStore = defineStore('chat', () => {
       }
       const pending = [...pendingTerminalMessages.value];
       pendingTerminalMessages.value = [];
-      for (const payload of pending) {
-        void appendTerminalMessage(payload);
+      for (const item of pending) {
+        void appendTerminalMessage(item.payload, { readThrough: item.readThrough });
       }
     },
     { flush: 'post' }
@@ -808,12 +1107,12 @@ export const useChatStore = defineStore('chat', () => {
     }
   );
 
+  registerUnreadSyncListener();
+  registerMessageStatusListener();
+
   return {
     conversations,
     currentUser,
-    assistantMember,
-    assistantTypingConversationId,
-    cancelAssistantReply,
     maxMessageLength: MAX_MESSAGE_LENGTH,
     sendMessage,
     ensureDirectMessage,
@@ -828,7 +1127,11 @@ export const useChatStore = defineStore('chat', () => {
     deleteConversation,
     deleteMemberConversations,
     markConversationRead,
+    markAllConversationsRead,
     appendTerminalMessage,
+    applyTerminalStreamMessage,
+    getConversationTitle: resolveConversationTitle,
+    ensureConversationLatestMessage,
     getConversationPaging: (conversationId: string) => getPagingState(conversationId),
     isReady,
     chatError,
@@ -842,3 +1145,4 @@ export const useChatStore = defineStore('chat', () => {
 if (import.meta.hot) {
   import.meta.hot.accept(acceptHMRUpdate(useChatStore, import.meta.hot));
 }
+

@@ -1,5 +1,5 @@
 <template>
-  <nav class="w-full md:w-[88px] md:h-full h-16 flex md:flex-col flex-row items-center md:py-6 py-2 md:gap-6 gap-2 bg-panel/50 glass-panel md:border-r border-t md:border-t-0 border-white/5 shrink-0 z-50 fixed md:static bottom-0 left-0 right-0">
+  <nav class="w-full md:w-[88px] md:h-full h-16 flex md:flex-col flex-row items-center md:py-6 py-2 md:gap-6 gap-2 bg-panel/50 glass-panel md:border-r border-t md:border-t-0 border-white/5 shrink-0 z-50 fixed md:static bottom-0 left-0 right-0 md:overflow-y-auto custom-scrollbar">
     <div ref="statusMenuRef" class="mb-2 relative hidden md:block">
       <button
         type="button"
@@ -17,9 +17,9 @@
       </button>
       <div
         v-if="statusMenuOpen"
-        class="absolute left-full top-0 ml-3 w-52 glass-modal bg-panel-strong/95 rounded-xl shadow-2xl ring-1 ring-white/10 overflow-hidden z-50"
+        class="absolute left-full top-0 ml-3 w-52 rounded-xl glass-modal bg-panel-strong/95 flex flex-col py-1.5 shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 ring-1 ring-white/10"
       >
-        <div class="px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-white/40">
+        <div class="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/40">
           {{ t('settings.status') }}
         </div>
         <div class="py-1">
@@ -27,7 +27,7 @@
             v-for="option in statusOptions"
             :key="option.id"
             type="button"
-            class="w-full text-left px-3 py-2 text-xs font-semibold text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-2"
+            class="relative w-full text-left px-4 py-2.5 text-xs font-bold text-white hover:bg-white/15 hover:text-white hover:ring-1 hover:ring-white/10 transition-colors flex items-center gap-3"
             @click="selectStatus(option.id)"
           >
             <span :class="['w-2.5 h-2.5 rounded-full', option.dotClass]"></span>
@@ -60,7 +60,7 @@
           <span class="material-symbols-outlined text-[24px]">{{ item.icon }}</span>
           <span
             v-if="shouldShowUnread(item.id)"
-            class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1.5 rounded-full bg-[rgb(231,93,88)] text-on-primary text-[10px] font-bold flex items-center justify-center border border-[rgb(199,75,70)] shadow-md"
+            class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1.5 rounded-full bg-[rgb(209,101,91)] text-on-primary text-[10px] font-bold flex items-center justify-center border border-[rgb(209,101,91)] shadow-md"
           >
             {{ formatUnreadCount(totalUnreadCount) }}
           </span>
@@ -84,14 +84,12 @@
       </div>
     </div>
 
-    <div class="flex-1 hidden md:block"></div>
-
     <button
       type="button"
       @click="emitChange('settings')"
       :title="t('nav.settings')"
       :class="[
-        'w-12 h-12 flex items-center justify-center rounded-2xl transition-all hidden md:flex',
+        'w-12 h-12 flex items-center justify-center rounded-2xl transition-all hidden md:flex md:mt-auto',
         activeTab === 'settings' ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'
       ]"
     >
@@ -101,12 +99,15 @@
 </template>
 
 <script setup lang="ts">
+// 侧边导航栏：负责主导航切换与账户状态菜单交互。
 import { computed, onBeforeUnmount, onMounted, ref, toRef } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import AvatarBadge from './AvatarBadge.vue';
 import { useSettingsStore, type AccountStatus } from '@/features/global/settingsStore';
 import { useProjectStore } from '@/features/workspace/projectStore';
+import { useWorkspaceStore } from '@/features/workspace/workspaceStore';
 import { CURRENT_USER_ID } from '@/features/chat/data';
 import { ensureAvatar } from '@/shared/utils/avatar';
 import { useChatStore } from '@/features/chat/chatStore';
@@ -132,8 +133,10 @@ const navItems: NavItem[] = [
 const { t } = useI18n();
 const settingsStore = useSettingsStore();
 const projectStore = useProjectStore();
+const workspaceStore = useWorkspaceStore();
 const chatStore = useChatStore();
 const { settings } = storeToRefs(settingsStore);
+const { currentWorkspace } = storeToRefs(workspaceStore);
 const { setAccountStatus } = settingsStore;
 const { updateMember } = projectStore;
 const { totalUnreadCount } = storeToRefs(chatStore);
@@ -177,7 +180,29 @@ const emitChange = (tab: TabId) => {
   emit('change', tab);
 };
 
+const openWorkspaceFolder = async () => {
+  const path = currentWorkspace.value?.path?.trim();
+  if (!path) {
+    emitChange('workspaces');
+    return;
+  }
+  if (!isTauri()) {
+    emitChange('workspaces');
+    return;
+  }
+  try {
+    await invoke('workspace_open_folder', { path });
+  } catch (error) {
+    console.error('Failed to open workspace folder.', error);
+    emitChange('workspaces');
+  }
+};
+
 const handleNavClick = (id: TabId) => {
+  if (id === 'workspaces') {
+    void openWorkspaceFolder();
+    return;
+  }
   emitChange(id);
 };
 
@@ -186,6 +211,7 @@ const shouldShowUnread = (id: TabId) => {
   return totalUnreadCount.value > 0;
 };
 
+// 未读数上限展示为 99+，避免徽标过宽影响布局。
 const formatUnreadCount = (value: number) => (value > 99 ? '99+' : String(value));
 
 const activeTab = toRef(props, 'activeTab');

@@ -1,6 +1,16 @@
+// 聊天工具函数：处理提及、名称去重与消息时间分组。
 import type { Member, Message } from './types';
 
-export const splitMentions = (text: string) => text.split(/(@[\w\s]+)/g).filter(Boolean);
+/**
+ * 拆分文本中的提及片段。
+ * 输入：原始文本。
+ * 输出：包含提及与普通文本的片段数组。
+ */
+const MENTION_TOKEN_PATTERN = /@[^\s]+/u;
+const MENTION_SPLIT_PATTERN = /(@[^\s]+)/gu;
+
+export const splitMentions = (text: string) => text.split(MENTION_SPLIT_PATTERN).filter(Boolean);
+export const isMentionToken = (value: string) => MENTION_TOKEN_PATTERN.test(value);
 
 const truncateByChars = (value: string, limit: number) => {
   const chars = Array.from(value);
@@ -10,6 +20,11 @@ const truncateByChars = (value: string, limit: number) => {
   return chars.slice(0, limit).join('');
 };
 
+/**
+ * 构建群聊标题。
+ * 输入：成员 id 列表、成员数据、当前用户 id 与最大字符数（默认 18）。
+ * 输出：拼接后的标题字符串。
+ */
 export const buildGroupConversationTitle = (
   memberIds: string[] | undefined,
   members: Member[],
@@ -31,8 +46,13 @@ export const buildGroupConversationTitle = (
   return truncateByChars(joined, limit);
 };
 
+/**
+ * 生成不冲突的成员名称。
+ * 输入：期望名称与已有成员列表。
+ * 输出：保证大小写不冲突的名称。
+ */
 export const ensureUniqueName = (name: string, members: Member[]) => {
-  // Enforce case-insensitive uniqueness to match the UI's duplicate prevention.
+  // 以不区分大小写的规则与 UI 校验保持一致。
   const lowerNames = new Set(members.map((member) => member.name.toLowerCase()));
 
   if (!lowerNames.has(name.toLowerCase())) {
@@ -49,6 +69,11 @@ export const ensureUniqueName = (name: string, members: Member[]) => {
   return candidate;
 };
 
+/**
+ * 格式化消息时间。
+ * 输入：时间戳与可选 locale。
+ * 输出：时:分 字符串。
+ */
 export const formatMessageTime = (timestamp: number, locale?: string) => {
   const formatter = new Intl.DateTimeFormat(locale, {
     hour: '2-digit',
@@ -57,6 +82,11 @@ export const formatMessageTime = (timestamp: number, locale?: string) => {
   return formatter.format(new Date(timestamp));
 };
 
+/**
+ * 获取消息所属日期的 key。
+ * 输入：时间戳。
+ * 输出：YYYY-MM-DD 字符串。
+ */
 export const getMessageDayKey = (timestamp: number) => {
   const date = new Date(timestamp);
   const year = date.getFullYear();
@@ -65,6 +95,11 @@ export const getMessageDayKey = (timestamp: number) => {
   return `${year}-${month}-${day}`;
 };
 
+/**
+ * 格式化日期分隔符文本。
+ * 输入：时间戳与可选 locale。
+ * 输出：日期标签字符串。
+ */
 export const formatDayLabel = (timestamp: number, locale?: string) => {
   const formatter = new Intl.DateTimeFormat(locale, {
     month: 'long',
@@ -78,6 +113,11 @@ export type MessageDisplayItem =
   | { type: 'separator'; id: string; label: string }
   | { type: 'message'; id: string; message: Message };
 
+/**
+ * 按日期对消息分组并插入分隔条目。
+ * 输入：消息列表与可选 locale。
+ * 输出：包含分隔符与消息的展示数组。
+ */
 export const groupMessagesByDay = (messages: Message[], locale?: string): MessageDisplayItem[] => {
   const items: MessageDisplayItem[] = [];
   let lastDayKey = '';

@@ -1,6 +1,6 @@
 //! 归一化阶段：统一消息格式与提取元信息。
 
-use crate::terminal_engine::models::TerminalMessagePayload;
+use crate::contracts::terminal_message::TerminalMessagePayload;
 
 use super::types::MessageEnvelope;
 

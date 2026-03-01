@@ -24,6 +24,7 @@
 </template>
 
 <script setup lang="ts">
+// 好友快捷栏组件：展示常用好友头像入口。
 import { toRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { FriendEntry } from '../types';

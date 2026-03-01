@@ -1,9 +1,11 @@
+// [2026-01-23 00:59] 目的: 维护英文界面文案与键值映射，集中管理以便一致性与可翻译性; 边界: 仅包含文案资源，不引入业务逻辑或运行时行为; 设计: 键结构与功能域对齐以降低跨模块引用成本与回归风险。
 export default {
   app: {
     name: 'golutra',
     windowControls: {
       minimize: 'Minimize',
       maximize: 'Maximize',
+      restore: 'Restore',
       close: 'Close'
     }
   },
@@ -20,9 +22,14 @@ export default {
     title: 'Terminal',
     subtitle: 'Run multiple shells in one workspace.',
     newTab: 'New Tab',
+    tabSearchPlaceholder: 'Search tabs...',
+    tabSearchCreate: 'New tab',
+    tabSearchEmpty: 'No matching tabs.',
+    recentClosedTabs: 'Recently closed ({count})',
     emptyTabs: 'No terminals yet.',
     emptyTitle: 'No active terminals',
     emptySubtitle: 'Create a new terminal tab to get started.',
+    splitEmpty: 'Drag a tab here or create a new terminal.',
     unavailableTitle: 'Terminal unavailable',
     unavailableSubtitle: 'Open this view inside the Tauri desktop app to use terminals.',
     errorTitle: 'Terminal failed to start',
@@ -30,16 +37,44 @@ export default {
     resourceLimit: 'System resources are low. Close some background terminals and try again.',
     statusLabel: 'Terminal status',
     statusOptions: {
+      pending: 'Pending',
       connecting: 'Connecting',
       connected: 'Connected',
       working: 'Working',
       disconnected: 'Disconnected'
-    }
+    },
+    tabMenu: {
+      close: 'Close',
+      closeOthers: 'Close Others',
+      closeRight: 'Close to the Right',
+      pin: 'Pin to Front',
+      unpin: 'Unpin',
+      layoutSingle: 'Single pane',
+      layoutSplitVertical: 'Split left/right',
+      layoutSplitHorizontal: 'Split top/bottom',
+      layoutGrid: '2x2 grid'
+    },
+    contextMenu: {
+      clear: 'Clear',
+      find: 'Find'
+    },
+    findPlaceholder: 'Find...',
+    findNoResults: 'No results',
+    findCaseSensitive: 'Match case',
+    findWholeWord: 'Whole word',
+    findRegex: 'Use regex'
   },
-  common: {
-    userAvatarAlt: 'User',
-    remove: 'Remove'
+  contextMenu: {
+    copy: 'Copy',
+    cut: 'Cut',
+    paste: 'Paste',
+    selectAll: 'Select All'
   },
+    common: {
+      userAvatarAlt: 'User',
+      remove: 'Remove',
+      openFolder: 'Open folder'
+    },
   chat: {
     channelName: 'general',
     channelDisplay: '#general',
@@ -54,11 +89,30 @@ export default {
       directPlaceholder: 'Message {name}',
       send: 'Send',
       stop: 'Stop',
+      mentions: 'Mentions',
+      removeMention: 'Remove mention of {name}',
       hint: 'Enter to send • Shift+Enter for newline',
       quickPrompts: {
         summarize: 'Summarize the latest discussion',
         draftReply: 'Draft a polite reply',
         extractTasks: 'Extract action items'
+      },
+      emoji: {
+        recent: 'Recent',
+        search: 'Search emoji...',
+        empty: 'No matching emoji',
+        emptyRecent: 'No recent emoji yet',
+        groups: {
+          smileys: 'Smileys & Emotion',
+          people: 'People & Body',
+          component: 'Component',
+          animals: 'Animals & Nature',
+          food: 'Food & Drink',
+          travel: 'Travel & Places',
+          activities: 'Activities',
+          objects: 'Objects',
+          symbols: 'Symbols'
+        }
       }
     },
     sidebar: {
@@ -247,10 +301,31 @@ export default {
       updated: 'Updated 2h ago',
       active: 'Active'
     },
+    project: {
+      title: 'Project Skills',
+      import: 'Import My Skills',
+      pickerSubtitle: 'Select skills from your library to link into this workspace.',
+      searchPlaceholder: 'Search skills in your library...',
+      linkAction: 'Link',
+      loading: 'Loading project skills...',
+      empty: 'No project skills linked yet.',
+      emptyLibrary: 'No skills available in your library.',
+      emptySearch: 'No skills match your search.',
+      readOnlyHint: 'Workspace is read-only. Linking skills is disabled.',
+      removeConfirmTitle: 'Unlink project skill?',
+      removeConfirmMessage: 'This will unlink "{name}" from this workspace.',
+      removeConfirmOk: 'Unlink',
+      removeConfirmCancel: 'Cancel'
+    },
     library: {
       searchPlaceholder: 'Search your library...',
+      refresh: 'Refresh',
       importTitle: 'Import Skill',
       importSubtitle: 'From URL or Local File',
+      removeConfirmTitle: 'Remove skill folder?',
+      removeConfirmMessage: 'This will delete "{name}" from your local skills library.',
+      removeConfirmOk: 'Delete',
+      removeConfirmCancel: 'Cancel',
       browseShop: 'Browse Skill Shop'
     },
     footer: {
@@ -517,6 +592,17 @@ export default {
     changesApply: 'Changes apply after restart.',
     defaultMember: 'Default Member',
     selectMember: 'Select Member',
+    selectTerminal: 'Select Terminal',
+    terminalAuto: 'System Default',
+    terminalAutoHint: 'Uses the OS default shell.',
+    terminalCustom: 'Custom Terminal',
+    terminalName: 'Terminal Name',
+    terminalNamePlaceholder: 'e.g. PowerShell',
+    terminalPath: 'Terminal Executable',
+    terminalPathPlaceholder: 'Select a terminal executable',
+    terminalBrowse: 'Browse',
+    terminalEmpty: 'No terminals detected on this device.',
+    terminalNotAvailable: 'Available in the desktop app only.',
     refreshList: 'Refresh List',
     cancel: 'Cancel',
     saveChanges: 'Save Changes',
@@ -546,8 +632,6 @@ export default {
       mentionsOnlyDesc: 'Only notify when you are mentioned.',
       previews: 'Message Previews',
       previewsDesc: 'Display message content in alerts.',
-      weeklyDigest: 'Weekly Digest',
-      weeklyDigestDesc: 'Receive a weekly summary of activity.',
       quietHours: 'Quiet Hours',
       quietHoursDesc: 'Silence alerts during scheduled hours.'
     },
@@ -569,9 +653,31 @@ export default {
     dataClearTitle: 'Clear chat history',
     dataClearHint: 'Delete all messages and attachments for this workspace.',
     dataClearAction: 'Clear all messages',
+    chatStreamTitle: 'Chat streaming output',
+    chatStreamHint: 'Stream terminal output into chat while the command is running.',
     dataClearConfirm: 'This will permanently remove all chat messages for this workspace. Continue?',
     dataClearResult: 'Cleared {messages} messages and {attachments} attachments.',
     dataActionFailed: 'Operation failed. Please try again.',
+    terminalCallChainsTitle: 'Call chains',
+    terminalSnapshotAuditTitle: 'Terminal snapshot audit',
+    terminalSnapshotAuditHint: 'Open and close terminal windows to compare frontend and backend snapshots.',
+    terminalSnapshotAuditAction: 'Run snapshot audit',
+    terminalSnapshotAuditRunning: 'Running snapshot audit...',
+    terminalSnapshotAuditNotAvailable: 'Available in the desktop app only.',
+    terminalSnapshotAuditStatus: {
+      idle: 'Snapshot audit idle.',
+      running: 'Snapshot audit running...',
+      passed: 'Snapshot audit passed.',
+      failed: 'Snapshot audit failed.'
+    },
+    terminalSnapshotAuditLegend: 'FB: front vs backend · FR: front vs reopen · BR: backend vs reopen',
+    terminalSnapshotAuditRound: 'Round {round}',
+    terminalSnapshotAuditCreated: 'created for audit',
+    terminalSnapshotAuditNoMembers: 'No terminal members available.',
+    terminalSnapshotAuditCheck: {
+      ok: 'OK',
+      ng: 'NG'
+    },
     keybindProfiles: {
       default: 'Default',
       vscode: 'VS Code',
@@ -589,6 +695,8 @@ export default {
       gemini: 'Gemini CLI',
       codex: 'Codex',
       claude: 'Claude Code',
+      opencode: 'opencode',
+      qwen: 'Qwen Code',
       terminal: 'Terminal',
       custom: 'Custom CLI'
     },
@@ -602,6 +710,20 @@ export default {
       edit: 'Edit',
       remove: 'Delete'
     },
+    terminalFriends: {
+      title: 'Terminal Friends',
+      desc: 'Remove terminal members and reset name counters.',
+      action: 'Delete Terminal Friends',
+      confirmCurrent: 'Delete terminal friends in this project and reset counters?',
+      resultCurrent: 'Removed {count} terminal friends from this project.',
+      failed: 'Failed to delete terminal friends.',
+      noWorkspace: 'Please open a workspace first.'
+    },
+    terminalTestErrors: {
+      shellBinaryNotFound: 'Terminal executable not found: {path}',
+      shellLaunchFailed: 'Failed to launch terminal: {error}'
+    },
+    terminalTestFailed: 'Test Terminal failed: {error}',
     themeOptions: {
       dark: {
         label: 'Dark',

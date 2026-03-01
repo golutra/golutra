@@ -1,3 +1,5 @@
+/* 全局样式入口：集中定义字体、窗口壳与主题变量，并对第三方组件做必要覆盖。 */
+@import "./animations.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -73,6 +75,17 @@ body {
   cursor: default;
 }
 
+.member-avatar-button,
+.member-avatar-button:focus,
+.member-avatar-button:focus-visible,
+.member-avatar-button:active {
+  outline: none;
+  box-shadow: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
 html,
 body,
 #app {
@@ -107,6 +120,7 @@ html {
   width: 100%;
 }
 
+/* xterm 依赖隐藏 textarea 处理输入与 IME，此处压缩尺寸避免布局干扰。 */
 .xterm .xterm-helper-textarea {
   position: absolute !important;
   width: 1px !important;
@@ -239,6 +253,16 @@ html {
   color: #fff;
 }
 
+.window-frame--hover-stale .titlebar__btn:hover {
+  background: transparent;
+  color: rgb(var(--color-text) / 0.6);
+}
+
+.window-frame--hover-stale .titlebar__btn--close:hover {
+  background: transparent;
+  color: rgb(var(--color-text) / 0.6);
+}
+
 .window-frame--inactive .titlebar {
 }
 
@@ -297,6 +321,7 @@ textarea,
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+/* 主题变量基线：作为暗色默认值，供运行时主题切换与 utility 类使用。 */
 :root {
   --color-background: 15 15 18;
   --color-surface: 24 24 27;
@@ -315,8 +340,18 @@ textarea,
   --shadow-modal: 0 25px 50px -12px rgb(0 0 0 / 0.5);
   --app-gradient: radial-gradient(1200px circle at top right, rgb(var(--color-primary) / 0.18), rgb(var(--color-background)) 55%, rgb(5 5 5) 100%);
   --app-gradient-spot: radial-gradient(900px circle at 20% 20%, rgb(var(--color-primary) / 0.12), transparent 60%);
+  --skill-modal-gradient: radial-gradient(720px circle at 12% 8%, rgb(var(--color-primary) / 0.16), transparent 58%),
+    linear-gradient(155deg, rgb(var(--color-panel) / 0.95), rgb(var(--color-panel-strong) / 0.9) 55%, rgb(var(--color-background) / 0.85) 100%);
+  --skill-card-gradient: linear-gradient(
+    160deg,
+    rgb(var(--color-panel) / 0.88),
+    rgb(var(--color-panel-strong) / 0.78) 52%,
+    rgb(var(--color-background) / 0.72) 100%
+  );
+  --skill-card-accent: linear-gradient(120deg, rgb(var(--color-overlay) / 0.05), transparent 45%);
   --window-glow: none;
   --window-glow-inactive: none;
+  --z-context-menu: 2000;
   color-scheme: dark;
 }
 
@@ -338,6 +373,15 @@ textarea,
   --shadow-modal: 0 25px 50px -12px rgb(15 23 42 / 0.16);
   --app-gradient: radial-gradient(1200px circle at top right, rgb(var(--color-primary) / 0.12), rgb(var(--color-background)) 45%, rgb(var(--color-panel)) 100%);
   --app-gradient-spot: radial-gradient(800px circle at 20% 15%, rgb(194 231 255 / 0.45), transparent 60%);
+  --skill-modal-gradient: radial-gradient(720px circle at 12% 8%, rgb(var(--color-primary) / 0.08), transparent 58%),
+    linear-gradient(155deg, rgb(var(--color-panel) / 0.95), rgb(var(--color-panel-strong) / 0.88) 55%, rgb(var(--color-surface) / 0.9) 100%);
+  --skill-card-gradient: linear-gradient(
+    160deg,
+    rgb(var(--color-panel) / 0.98),
+    rgb(var(--color-panel-strong) / 0.92) 52%,
+    rgb(var(--color-surface) / 0.96) 100%
+  );
+  --skill-card-accent: linear-gradient(120deg, rgb(var(--color-overlay) / 0.04), transparent 45%);
   --window-glow: none;
   --window-glow-inactive: none;
   color-scheme: light;
@@ -366,6 +410,15 @@ textarea,
     --shadow-modal: 0 25px 50px -12px rgb(15 23 42 / 0.16);
     --app-gradient: radial-gradient(1200px circle at top right, rgb(var(--color-primary) / 0.12), rgb(var(--color-background)) 45%, rgb(var(--color-panel)) 100%);
     --app-gradient-spot: radial-gradient(800px circle at 20% 15%, rgb(194 231 255 / 0.45), transparent 60%);
+    --skill-modal-gradient: radial-gradient(720px circle at 12% 8%, rgb(var(--color-primary) / 0.08), transparent 58%),
+      linear-gradient(155deg, rgb(var(--color-panel) / 0.95), rgb(var(--color-panel-strong) / 0.88) 55%, rgb(var(--color-surface) / 0.9) 100%);
+    --skill-card-gradient: linear-gradient(
+      160deg,
+      rgb(var(--color-panel) / 0.98),
+      rgb(var(--color-panel-strong) / 0.92) 52%,
+      rgb(var(--color-surface) / 0.96) 100%
+    );
+    --skill-card-accent: linear-gradient(120deg, rgb(var(--color-overlay) / 0.04), transparent 45%);
     color-scheme: light;
   }
 }
@@ -374,6 +427,37 @@ textarea,
   background: transparent;
 }
 
+.skill-modal {
+  background-color: rgb(var(--color-panel-strong) / 0.95);
+  background-image: var(--skill-modal-gradient);
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.skill-card {
+  background-color: rgb(var(--color-panel) / 0.7);
+  background-image: var(--skill-card-gradient);
+  background-repeat: no-repeat;
+  background-size: cover;
+  isolation: isolate;
+}
+
+.skill-card-accent {
+  position: absolute;
+  inset: 0;
+  background-image: var(--skill-card-accent);
+  border-radius: inherit;
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.skill-card > *:not(.skill-card-accent) {
+  position: relative;
+  z-index: 1;
+}
+
+/* light 主题下覆盖若干 utility 颜色，保持 UI 语义一致。 */
 :root[data-resolved-theme='light'] .message-bubble--me {
   background-color: rgb(var(--color-panel-strong)) !important;
   border: 1px solid rgb(var(--color-border) / 0.35);
