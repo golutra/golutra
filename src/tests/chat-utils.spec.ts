@@ -1,3 +1,4 @@
+// 聊天工具函数测试：覆盖提及拆分、名称去重与按天分组的核心行为。
 import { describe, expect, it } from 'vitest';
 import { ensureUniqueName, groupMessagesByDay, splitMentions } from '../features/chat/utils';
 import type { Member, Message } from '../features/chat/types';

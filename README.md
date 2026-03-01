@@ -1,7 +1,7 @@
 # golutra
 
 **使用赛博监工系统，指挥你的 AI 牛马。**  
-**Cyber Overseer System: Command your AI workforce.**
+**Use Cyberpunk Overseer System: Command your AI workforce.**
 
 ---
 

@@ -48,6 +48,7 @@
 </template>
 
 <script setup lang="ts">
+// 邀请菜单组件：提供不同邀请入口的快捷触发。
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 

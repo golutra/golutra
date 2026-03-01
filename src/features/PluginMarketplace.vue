@@ -133,6 +133,7 @@
 </template>
 
 <script setup lang="ts">
+// 插件市场页面：展示可安装插件与已安装列表的切换视图。
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useGlobalStore } from '@/features/global/globalStore';
@@ -146,6 +147,7 @@ type StorePlugin = {
   rating: string;
 };
 
+// [TODO/Marketplace, 2026-01-23] 接入插件列表数据源并替换占位数组。
 const plugins: StorePlugin[] = [];
 
 const activeTab = ref<'store' | 'installed'>('store');

@@ -31,28 +31,26 @@
         @open-members="showMembersDrawer = true"
       />
       <MessagesList
+        ref="messagesListRef"
         :messages="activeMessages"
         :current-user-id="currentUserId"
         :current-user-name="currentUserName"
-        :is-typing="isAssistantTyping"
-        :typing-name="assistantName"
-        :typing-avatar="assistantAvatar"
         :has-more="hasMoreMessages"
         :is-loading-more="isLoadingMore"
+        :terminal-member-ids="terminalMemberIds"
         @load-more="handleLoadOlderMessages"
         @open-roadmap="activeModal = 'roadmap'"
+        @open-terminal="handleMessageAvatarOpen"
       />
       <div class="relative">
         <ChatInput
           ref="chatInputRef"
           v-model="inputValue"
           :max-length="maxMessageLength"
-          :is-generating="isAssistantTyping"
           :quick-prompts="quickPrompts"
           :placeholder="inputPlaceholder"
           :members="mentionableMembers"
           @send="handleSendMessage"
-          @stop="cancelAssistantReply"
         />
       </div>
     </div>
@@ -63,18 +61,68 @@
       variant="sidebar"
       @open-invite="openFriendsInvite"
       @member-action="handleMemberAction"
-    />
+    >
+      <template v-if="isDefaultChannelActive" #header-action>
+        <div class="relative">
+          <button
+            type="button"
+            @click="toggleAddFriendMenu"
+            :class="[
+              'h-9 px-4 rounded-xl flex items-center gap-2 text-[12px] font-semibold transition-colors border',
+              showAddFriendMenu
+                ? 'bg-primary/20 text-primary border-primary/30'
+                : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
+            ]"
+          >
+            <span class="material-symbols-outlined text-[18px]">person_add</span>
+            {{ t('friends.add') }}
+          </button>
+          <template v-if="showAddFriendMenu">
+            <div
+              class="fixed inset-0 bg-background/60 backdrop-blur-[2px] z-40 transition-opacity duration-300"
+              @click="showAddFriendMenu = false"
+            ></div>
+            <InviteMenu position-class="absolute right-0 top-full mt-3" @select="handleAddFriendSelect" />
+          </template>
+        </div>
+      </template>
+    </MembersSidebar>
 
     <template v-if="showMembersDrawer">
-      <div class="fixed inset-0 bg-black/40 backdrop-blur-[1px] z-40 xl:hidden" @click="showMembersDrawer = false"></div>
-      <div class="fixed right-0 top-0 bottom-0 z-50 xl:hidden">
+      <div class="fixed inset-0 bg-black/40 backdrop-blur-[1px] z-40 md:hidden" @click="showMembersDrawer = false"></div>
+      <div class="fixed right-0 top-0 bottom-0 z-50 md:hidden">
         <MembersSidebar
           :members="conversationMembers"
           :current-user-id="currentUserId"
           variant="drawer"
           @open-invite="openFriendsInvite"
           @member-action="handleMemberAction"
-        />
+        >
+          <template v-if="isDefaultChannelActive" #header-action>
+            <div class="relative">
+              <button
+                type="button"
+                @click="toggleAddFriendMenu"
+                :class="[
+                  'h-9 px-4 rounded-xl flex items-center gap-2 text-[12px] font-semibold transition-colors border',
+                  showAddFriendMenu
+                    ? 'bg-primary/20 text-primary border-primary/30'
+                    : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10 hover:text-white'
+                ]"
+              >
+                <span class="material-symbols-outlined text-[18px]">person_add</span>
+                {{ t('friends.add') }}
+              </button>
+              <template v-if="showAddFriendMenu">
+                <div
+                  class="fixed inset-0 bg-background/60 backdrop-blur-[2px] z-40 transition-opacity duration-300"
+                  @click="showAddFriendMenu = false"
+                ></div>
+                <InviteMenu position-class="absolute right-0 top-full mt-3" @select="handleAddFriendSelect" />
+              </template>
+            </div>
+          </template>
+        </MembersSidebar>
       </div>
     </template>
 
@@ -93,6 +141,21 @@
       :action-label="inviteActionLabel"
       @close="showFriendsInviteModal = false"
       @invite="handleInviteFriends"
+    />
+    <InviteAdminModal v-if="addFriendModalType === 'admin'" @close="addFriendModalType = null" @invite="handleAddFriendAdminInvite" />
+    <InviteAssistantModal
+      v-if="addFriendModalType === 'assistant'"
+      :title="t('invite.assistant.title')"
+      invite-role="assistant"
+      @close="addFriendModalType = null"
+      @invite="handleAddFriendInvite($event, 'assistant')"
+    />
+    <InviteAssistantModal
+      v-if="addFriendModalType === 'member'"
+      :title="t('invite.member.title')"
+      invite-role="member"
+      @close="addFriendModalType = null"
+      @invite="handleAddFriendInvite($event, 'member')"
     />
 
     <ManageMemberModal
@@ -114,6 +177,7 @@
 </template>
 
 <script setup lang="ts">
+// 聊天主界面：协调会话列表、消息输入、成员侧栏与终端联动。
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
@@ -122,10 +186,13 @@ import ChatHeader from './components/ChatHeader.vue';
 import MessagesList from './components/MessagesList.vue';
 import ChatInput from './components/ChatInput.vue';
 import MembersSidebar from './components/MembersSidebar.vue';
+import InviteMenu from './components/InviteMenu.vue';
 import RoadmapModal from './modals/RoadmapModal.vue';
 import SkillManagementModal from './modals/SkillManagementModal.vue';
 import SkillDetailModal from './modals/SkillDetailModal.vue';
 import InviteFriendsModal from './modals/InviteFriendsModal.vue';
+import InviteAdminModal from './modals/InviteAdminModal.vue';
+import InviteAssistantModal from './modals/InviteAssistantModal.vue';
 import ManageMemberModal from './modals/ManageMemberModal.vue';
 import RenameConversationModal from './modals/RenameConversationModal.vue';
 import type { Conversation, ConversationAction, FriendEntry, Member, MemberActionPayload, MessageMentionsPayload } from './types';
@@ -137,12 +204,21 @@ import { buildGroupConversationTitle } from './utils';
 import { useWorkspaceStore } from '@/features/workspace/workspaceStore';
 import { useProjectStore } from '@/features/workspace/projectStore';
 import { useSettingsStore } from '@/features/global/settingsStore';
-import { buildSeededAvatar, ensureAvatar } from '@/shared/utils/avatar';
+import { ensureAvatar } from '@/shared/utils/avatar';
 import { hasTerminalConfig } from '@/shared/utils/terminal';
-import { useTerminalMemberStore } from '@/features/terminal/terminalMemberStore';
-import { onChatMessageCreated } from './chatBridge';
+import { logDiagnosticsEvent } from '@/shared/monitoring/diagnostics/logger';
+import { createFrontLogger } from '@/shared/monitoring/passiveMonitor';
+import { resolveMemberDisplayName } from '@/shared/utils/memberDisplay';
+import { registerKeybindRule, unregisterKeybindRule } from '@/shared/keyboard/registry';
+import { resolveKeybindKeys, type KeybindActionId } from '@/shared/keyboard/profiles';
+import type { KeybindItem } from '@/shared/keyboard/types';
+import { useTerminalOrchestratorStore } from '@/stores/terminalOrchestratorStore';
 import { useToastStore } from '@/stores/toastStore';
+import { useNotificationOrchestratorStore } from '@/stores/notificationOrchestratorStore';
+import { onChatMessageCreated } from './chatBridge';
+import { useFriendInvites } from './useFriendInvites';
 import { isTauri } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 type ActiveModal = 'roadmap' | 'skills' | 'skillDetail' | null;
 
@@ -151,11 +227,21 @@ const showFriendsInviteModal = ref(false);
 const showMembersDrawer = ref(false);
 const managingMember = ref<Member | null>(null);
 const renamingConversation = ref<Conversation | null>(null);
+const {
+  showInviteMenu: showAddFriendMenu,
+  activeModalType: addFriendModalType,
+  toggleInviteMenu: toggleAddFriendMenu,
+  handleInviteSelect: handleAddFriendSelect,
+  handleAdminInvite: handleAddFriendAdminInvite,
+  handleInvite: handleAddFriendInvite
+} = useFriendInvites();
 const chatInputRef = ref<{ focus: () => void; registerMention: (member: Member) => void } | null>(null);
+const messagesListRef = ref<{ jumpToLatest: () => void } | null>(null);
 const activeConversationId = ref<string>('');
 
 const inputValue = ref('');
 
+const isTauriEnv = isTauri();
 const { t } = useI18n();
 const workspaceStore = useWorkspaceStore();
 const {
@@ -172,10 +258,13 @@ const { contacts } = storeToRefs(contactsStore);
 const settingsStore = useSettingsStore();
 const { settings } = storeToRefs(settingsStore);
 const { setAccountStatus } = settingsStore;
+const notificationOrchestratorStore = useNotificationOrchestratorStore();
+const { pendingOpenConversationId } = storeToRefs(notificationOrchestratorStore);
+const { clearPendingOpenConversation } = notificationOrchestratorStore;
+const terminalOrchestratorStore = useTerminalOrchestratorStore();
+const { ensureMemberSession, openMemberTerminal, stopMemberSession, onTerminalStreamMessage } = terminalOrchestratorStore;
 const toastStore = useToastStore();
 const { pushToast } = toastStore;
-const terminalMemberStore = useTerminalMemberStore();
-const { ensureMemberSession, openMemberTerminal, stopMemberSession } = terminalMemberStore;
 const workspaceName = computed(() => currentWorkspace.value?.name ?? t('chat.sidebar.workspaceName'));
 const workspaceId = computed(() => currentWorkspace.value?.id ?? null);
 const defaultChannelName = computed(() => defaultChannelNameRef.value?.trim() || '');
@@ -189,13 +278,11 @@ const chatStore = useChatStore();
 const {
   conversations,
   currentUser,
-  assistantMember,
-  assistantTypingConversationId,
   isReady,
-  defaultChannelId
+  defaultChannelId,
+  totalUnreadCount
 } = storeToRefs(chatStore);
   const {
-    cancelAssistantReply,
     sendMessage,
     ensureDirectMessage,
     createGroupConversation,
@@ -209,6 +296,7 @@ const {
     deleteConversation,
     deleteMemberConversations,
     appendTerminalMessage,
+    applyTerminalStreamMessage,
     getConversationPaging,
     markConversationRead
   } = chatStore;
@@ -216,22 +304,62 @@ const maxMessageLength = chatStore.maxMessageLength;
 
 const DEFAULT_OWNER_NAME = 'Owner';
 const DEFAULT_MEMBER_NAME = 'Member';
-const DEFAULT_ASSISTANT_NAME = 'Assistant';
-
 const accountDisplayName = computed(() => settings.value.account.displayName.trim());
 const resolvedAccountName = computed(() => accountDisplayName.value || DEFAULT_OWNER_NAME);
 const accountAvatar = computed(() => ensureAvatar(settings.value.account.avatar));
 const currentUserId = computed(() => currentUser.value?.id ?? CURRENT_USER_ID);
 const currentUserName = computed(() => resolvedAccountName.value);
-const assistantName = computed(() => assistantMember.value?.name ?? DEFAULT_ASSISTANT_NAME);
-const assistantAvatar = computed(() =>
-  ensureAvatar(assistantMember.value?.avatar ?? buildSeededAvatar(assistantName.value))
-);
 const quickPrompts = computed(() => [
   t('chat.input.quickPrompts.summarize'),
   t('chat.input.quickPrompts.draftReply'),
   t('chat.input.quickPrompts.extractTasks')
 ]);
+
+const CHAT_KEYBIND_RULE_ID = 'chat-keybinds';
+
+const buildChatKeybindItems = (): KeybindItem[] => {
+  if (!settings.value.keybinds.enabled) {
+    return [];
+  }
+  const profile = settings.value.keybinds.profile;
+  const items: KeybindItem[] = [];
+  const addItem = (actionId: KeybindActionId, item: Omit<KeybindItem, 'id' | 'keys'>) => {
+    const keys = resolveKeybindKeys(profile, actionId);
+    if (keys.length === 0) {
+      return;
+    }
+    items.push({ id: `chat-${actionId}`, keys, ...item });
+  };
+
+  addItem('jump-to-latest', {
+    allowInEditable: true,
+    action: () => {
+      messagesListRef.value?.jumpToLatest();
+    }
+  });
+
+  addItem('toggle-mute', {
+    allowInEditable: true,
+    enabled: () => Boolean(activeConversationId.value),
+    action: () => {
+      if (!activeConversationId.value) {
+        return;
+      }
+      toggleConversationMute(activeConversationId.value);
+    }
+  });
+
+  return items;
+};
+
+registerKeybindRule({
+  id: CHAT_KEYBIND_RULE_ID,
+  order: 10,
+  mode: 'merge',
+  stop: false,
+  matches: () => true,
+  items: () => buildChatKeybindItems()
+});
 
 const buildMentionLabel = (name: string) => `@${name}`;
 const CACHE_SAVE_DEBOUNCE_MS = 1200;
@@ -239,30 +367,57 @@ const cacheSaveTimers = new Map<string, number>();
 const cacheSavePending = new Map<string, { activeConversationId: string }>();
 let cacheSaveChain = Promise.resolve();
 let unlistenTerminalChat: (() => void) | null = null;
-const debugLog = (...args: unknown[]) => {
-  if (!import.meta.env.DEV) {
-    return;
+let unlistenTerminalStream: (() => void) | null = null;
+let unlistenWindowFocus: (() => void) | null = null;
+const appWindow = isTauriEnv ? getCurrentWindow() : null;
+const windowFocused = ref(true);
+const debugLog = createFrontLogger('chat');
+const isChatWindowActive = () => {
+  if (typeof document === 'undefined') {
+    return false;
   }
-  try {
-    if (window.localStorage.getItem('terminal-debug') !== '1') {
-      return;
-    }
-  } catch {
-    return;
+  if (document.visibilityState !== 'visible') {
+    return false;
   }
-  console.info('[chat]', ...args);
+  if (appWindow) {
+    return windowFocused.value;
+  }
+  if (typeof document.hasFocus === 'function') {
+    return document.hasFocus();
+  }
+  return true;
 };
+
+// 窗口重新获得焦点时仅清空当前会话未读。
+const clearUnreadOnFocus = () => {
+  if (!isReady.value || totalUnreadCount.value <= 0) {
+    return;
+  }
+  if (!isChatWindowActive()) {
+    return;
+  }
+  const conversationId = activeConversationId.value;
+  if (!conversationId) {
+    return;
+  }
+  const conversation = conversations.value.find((item) => item.id === conversationId);
+  if (!conversation || (conversation.unreadCount ?? 0) <= 0) {
+    return;
+  }
+  void markConversationRead(conversationId);
+};
+
+watch([windowFocused, isReady], ([focused, ready], [prevFocused, prevReady]) => {
+  if (!focused || !ready) {
+    return;
+  }
+  if (prevFocused && prevReady) {
+    return;
+  }
+  clearUnreadOnFocus();
+});
 
 const uniqueIds = (ids: string[]) => Array.from(new Set(ids.filter((id) => id)));
-
-const handleTerminalSessionError = (error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  if (message.includes('terminal buffer limit reached')) {
-    pushToast(t('terminal.resourceLimit'), { tone: 'error' });
-    return true;
-  }
-  return false;
-};
 
 const activeConversation = computed(() => conversations.value.find((conversation) => conversation.id === activeConversationId.value) ?? null);
 const activeMessages = computed(() => activeConversation.value?.messages ?? []);
@@ -292,7 +447,18 @@ const displayMembers = computed(() => {
     };
   });
 });
+const displayMembersForTitle = computed(() =>
+  displayMembers.value.map((member) => ({ ...member, name: resolveMemberDisplayName(member) }))
+);
+const resolveDisplayName = (member?: Member | null) => (member ? resolveMemberDisplayName(member) : '');
 const memberById = computed(() => new Map(displayMembers.value.map((member) => [member.id, member])));
+const terminalMemberIds = computed(() =>
+  members.value
+    .filter((member) => member.id !== currentUserId.value)
+    .filter((member) => member.roleType === 'assistant' || member.roleType === 'member')
+    .filter((member) => hasTerminalConfig(member.terminalType, member.terminalCommand))
+    .map((member) => member.id)
+);
 
 const friendEntries = computed<FriendEntry[]>(() => {
   const entries: FriendEntry[] = [];
@@ -301,10 +467,11 @@ const friendEntries = computed<FriendEntry[]>(() => {
     if (!member || member.id === currentUserId.value) continue;
     entries.push({
       id: member.id,
-      name: member.name,
+      name: resolveMemberDisplayName(member),
       avatar: member.avatar,
       roleType: member.roleType,
       status: member.status,
+      manualStatus: member.manualStatus,
       terminalStatus: member.terminalStatus,
       scope: 'project',
       terminalType: member.terminalType,
@@ -368,10 +535,15 @@ const activeDirectMember = computed(() => {
 const isMainChannel = (conversation: Conversation) =>
   conversation.type === 'channel' && conversation.id === defaultChannelId.value;
 
+const isDefaultChannelActive = computed(() => {
+  const conversation = activeConversation.value;
+  return conversation ? isMainChannel(conversation) : false;
+});
+
 const getConversationTitle = (conversation: Conversation) => {
   if (conversation.type === 'dm') {
     const targetId = conversation.targetId ?? '';
-    return memberById.value.get(targetId)?.name ?? DEFAULT_MEMBER_NAME;
+    return resolveDisplayName(memberById.value.get(targetId)) || DEFAULT_MEMBER_NAME;
   }
   if (isMainChannel(conversation) && defaultChannelName.value) {
     return defaultChannelName.value;
@@ -384,7 +556,7 @@ const getConversationTitle = (conversation: Conversation) => {
   }
   const groupTitle = buildGroupConversationTitle(
     conversation.memberIds,
-    displayMembers.value,
+    displayMembersForTitle.value,
     currentUserId.value,
     25
   );
@@ -396,7 +568,7 @@ const headerTitle = computed(() => {
     return fallbackChannelTitle.value;
   }
   if (activeConversation.value.type === 'dm') {
-    return activeDirectMember.value?.name ?? fallbackChannelTitle.value;
+    return resolveDisplayName(activeDirectMember.value) || fallbackChannelTitle.value;
   }
   return getConversationTitle(activeConversation.value);
 });
@@ -406,7 +578,7 @@ const headerDescription = computed(() => {
     return '';
   }
   if (activeConversation.value.type === 'dm') {
-    return activeDirectMember.value ? t('chat.directMessageDescription', { name: activeDirectMember.value.name }) : '';
+    return activeDirectMember.value ? t('chat.directMessageDescription', { name: resolveDisplayName(activeDirectMember.value) }) : '';
   }
   if (activeConversation.value.descriptionKey) {
     return t(activeConversation.value.descriptionKey);
@@ -416,7 +588,7 @@ const headerDescription = computed(() => {
 
 const inputPlaceholder = computed(() => {
   if (activeConversation.value?.type === 'dm' && activeDirectMember.value) {
-    const displayName = activeDirectMember.value.name.trim();
+    const displayName = resolveDisplayName(activeDirectMember.value).trim();
     const name = displayName ? `@${displayName}` : '@';
     return t('chat.input.directPlaceholder', { name });
   }
@@ -428,13 +600,11 @@ const inputPlaceholder = computed(() => {
   return t('chat.input.placeholder', { channel: defaultChannelDisplay.value });
 });
 
-const isAssistantTyping = computed(() => assistantTypingConversationId.value === activeConversationId.value);
-
 const renamingConversationName = computed(() => {
   if (!renamingConversation.value) return '';
   if (renamingConversation.value.type === 'dm') {
     const targetId = renamingConversation.value.targetId ?? '';
-    return memberById.value.get(targetId)?.name ?? '';
+    return resolveDisplayName(memberById.value.get(targetId));
   }
   return getConversationTitle(renamingConversation.value);
 });
@@ -460,6 +630,10 @@ const appendMention = (member: Member) => {
 
 const openFriendsInvite = () => {
   if (!activeConversation.value) return;
+  if (isDefaultChannelActive.value) {
+    showAddFriendMenu.value = true;
+    return;
+  }
   showFriendsInviteModal.value = true;
 };
 
@@ -556,13 +730,18 @@ const handleMemberAction = async ({ action, member, status }: MemberActionPayloa
   }
 
   if (action === 'open-terminal') {
-    try {
-      debugLog('open terminal from member action', { memberId: member.id });
-      await openMemberTerminal(member);
-    } catch (error) {
-      handleTerminalSessionError(error);
-      console.error('Failed to open member terminal.', error);
+    debugLog('open terminal from member action', { memberId: member.id });
+    void logDiagnosticsEvent('chatinterface-handle-member-action', {
+      memberId: member.id,
+      terminalType: member.terminalType,
+      terminalCommand: member.terminalCommand,
+      action
+    });
+    if (member.terminalStatus === 'connecting' && member.terminalType !== 'shell') {
+      pushToast(t('terminal.statusOptions.connecting'), { tone: 'info' });
+      return;
     }
+    await openMemberTerminal(member);
     return;
   }
 
@@ -576,31 +755,28 @@ const handleMemberAction = async ({ action, member, status }: MemberActionPayloa
 
   if (action === 'set-status') {
     if (status) {
+      const resolvedStatus = member.manualStatus ?? member.status;
+      if (resolvedStatus === status) {
+        return;
+      }
       if (member.id === CURRENT_USER_ID) {
         setAccountStatus(status);
       }
       if (member.id !== CURRENT_USER_ID && hasTerminalConfig(member.terminalType, member.terminalCommand)) {
         if (status === 'offline') {
-          try {
-            await stopMemberSession(member.id, { preserve: false, fireAndForget: true });
-          } catch (error) {
-            console.error('Failed to stop terminal session.', error);
-          }
-          void updateMember(member.id, { status, autoStartTerminal: false, manualStatus: status });
+          await stopMemberSession(member.id, { preserve: false, fireAndForget: true });
+          void updateMember(member.id, { autoStartTerminal: false, manualStatus: status });
           return;
         }
         if (status === 'online') {
-          try {
-            await ensureMemberSession(member, { openTab: false });
-          } catch (error) {
-            handleTerminalSessionError(error);
-            console.error('Failed to start terminal session.', error);
+          const session = await ensureMemberSession(member, { openTab: false });
+          if (!session) {
             return;
           }
-          void updateMember(member.id, { status, autoStartTerminal: true, manualStatus: status });
+          void updateMember(member.id, { autoStartTerminal: true, manualStatus: status });
           return;
         }
-        void updateMember(member.id, { status, manualStatus: status });
+        void updateMember(member.id, { manualStatus: status });
         return;
       }
       void updateMember(member.id, { status });
@@ -617,7 +793,7 @@ const handleMemberAction = async ({ action, member, status }: MemberActionPayloa
     }
     if (hasTerminalConfig(member.terminalType, member.terminalCommand)) {
       try {
-        await stopMemberSession(member.id, { preserve: false, fireAndForget: true });
+        await stopMemberSession(member.id, { preserve: false, fireAndForget: true, deleteSessionMap: true });
       } catch (error) {
         console.error('Failed to stop terminal session.', error);
       }
@@ -625,6 +801,33 @@ const handleMemberAction = async ({ action, member, status }: MemberActionPayloa
     await deleteMemberConversations(member.id);
     await removeMember(member.id);
   }
+};
+
+const handleMessageAvatarOpen = async (memberId: string) => {
+  if (!memberId || memberId === currentUserId.value) {
+    return;
+  }
+  const member = memberById.value.get(memberId);
+  if (!member) {
+    return;
+  }
+  if (member.roleType !== 'assistant' && member.roleType !== 'member') {
+    return;
+  }
+  if (!hasTerminalConfig(member.terminalType, member.terminalCommand)) {
+    return;
+  }
+  debugLog('open terminal from message avatar', { memberId: member.id });
+  void logDiagnosticsEvent('chatinterface-message-avatar-open', {
+    memberId: member.id,
+    terminalType: member.terminalType,
+    terminalCommand: member.terminalCommand
+  });
+  if (member.terminalStatus === 'connecting' && member.terminalType !== 'shell') {
+    pushToast(t('terminal.statusOptions.connecting'), { tone: 'info' });
+    return;
+  }
+  await openMemberTerminal(member);
 };
 
 const handleSendMessage = async (mentions: MessageMentionsPayload) => {
@@ -661,9 +864,6 @@ const handleConversationAction = ({ conversationId, action }: { conversationId: 
   }
 
   if (action === 'clear') {
-    if (assistantTypingConversationId.value === conversationId) {
-      cancelAssistantReply();
-    }
     clearConversationMessages(conversationId);
     return;
   }
@@ -671,9 +871,6 @@ const handleConversationAction = ({ conversationId, action }: { conversationId: 
   if (action === 'delete') {
     if (conversationId === defaultChannelId.value) {
       return;
-    }
-    if (assistantTypingConversationId.value === conversationId) {
-      cancelAssistantReply();
     }
     deleteConversation(conversationId);
   }
@@ -690,7 +887,46 @@ const handleLoadOlderMessages = async () => {
   await loadOlderMessages(activeConversationId.value);
 };
 
+type NotificationOpenConversationPayload = { conversationId?: string };
 const preferredConversationId = ref<string | null>(null);
+
+const applyNotificationConversation = async () => {
+  const conversationId = pendingOpenConversationId.value;
+  if (!conversationId || !isReady.value) {
+    return;
+  }
+  if (!conversations.value.some((conversation) => conversation.id === conversationId)) {
+    return;
+  }
+  clearPendingOpenConversation();
+  preferredConversationId.value = conversationId;
+  activeConversationId.value = conversationId;
+  await loadConversationMessages(conversationId);
+  await nextTick();
+  messagesListRef.value?.jumpToLatest();
+};
+
+const queueNotificationConversation = (conversationId?: string | null) => {
+  const trimmed = conversationId?.trim() ?? '';
+  if (!trimmed) {
+    return;
+  }
+  pendingOpenConversationId.value = trimmed;
+  void applyNotificationConversation();
+};
+
+const resolveNotificationBootstrap = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const payload = (window as typeof window & { __GOLUTRA_NOTIFICATION_OPEN__?: NotificationOpenConversationPayload })
+    .__GOLUTRA_NOTIFICATION_OPEN__;
+  const conversationId = typeof payload?.conversationId === 'string' ? payload.conversationId.trim() : '';
+  if (!conversationId) {
+    return null;
+  }
+  return { conversationId };
+};
 
 const scheduleCacheSave = (workspaceId: string, conversationId: string) => {
   cacheSavePending.set(workspaceId, { activeConversationId: conversationId });
@@ -720,7 +956,18 @@ const registerTerminalChatListener = () => {
     return;
   }
   unlistenTerminalChat = onChatMessageCreated((payload) => {
-    void appendTerminalMessage(payload);
+    // 当前私聊正打开且窗口聚焦时，直接视为已读，避免托盘短暂闪未读。
+    const readThrough = payload.conversationId === activeConversationId.value && isChatWindowActive();
+    void appendTerminalMessage(payload, { readThrough });
+  });
+};
+
+const registerTerminalStreamListener = () => {
+  if (!isTauri() || unlistenTerminalStream) {
+    return;
+  }
+  unlistenTerminalStream = onTerminalStreamMessage((payload) => {
+    applyTerminalStreamMessage(payload);
   });
 };
 
@@ -791,6 +1038,12 @@ watch(
   { deep: true }
 );
 
+watch(isDefaultChannelActive, (isDefault) => {
+  if (!isDefault) {
+    showAddFriendMenu.value = false;
+  }
+});
+
 watch(
   [() => activeConversationId.value, () => isReady.value],
   ([conversationId, ready]) => {
@@ -804,6 +1057,7 @@ watch(
   [() => activeConversationId.value, () => latestActiveMessageId.value, () => isReady.value],
   ([conversationId, messageId, ready]) => {
     if (!ready || !conversationId || !messageId) return;
+    if (!isChatWindowActive()) return;
     if (lastMarkedMessageId.value === messageId) return;
     lastMarkedMessageId.value = messageId;
     void markConversationRead(conversationId);
@@ -819,17 +1073,62 @@ watch(
   }
 );
 
+watch(
+  [() => pendingOpenConversationId.value, () => isReady.value, () => conversations.value.length],
+  ([conversationId, ready]) => {
+    if (!conversationId || !ready) return;
+    void applyNotificationConversation();
+  }
+);
+
 onBeforeUnmount(() => {
+  unregisterKeybindRule(CHAT_KEYBIND_RULE_ID);
   flushCacheSaves();
   if (unlistenTerminalChat) {
     unlistenTerminalChat();
     unlistenTerminalChat = null;
   }
+  if (unlistenTerminalStream) {
+    unlistenTerminalStream();
+    unlistenTerminalStream = null;
+  }
+  if (unlistenWindowFocus) {
+    unlistenWindowFocus();
+    unlistenWindowFocus = null;
+  }
 });
 
 onMounted(() => {
+  if (appWindow) {
+    appWindow
+      .isFocused()
+      .then((focused) => {
+        windowFocused.value = focused;
+      })
+      .catch(() => {});
+    appWindow
+      .onFocusChanged((event) => {
+        windowFocused.value = event.payload;
+      })
+      .then((unlisten) => {
+        unlistenWindowFocus = unlisten;
+      })
+      .catch(() => {});
+  }
   registerTerminalChatListener();
+  registerTerminalStreamListener();
   void contactsStore.load();
+  const boot = resolveNotificationBootstrap();
+  if (boot) {
+    queueNotificationConversation(boot.conversationId);
+    try {
+      delete (window as typeof window & { __GOLUTRA_NOTIFICATION_OPEN__?: NotificationOpenConversationPayload })
+        .__GOLUTRA_NOTIFICATION_OPEN__;
+    } catch {
+      // ignore
+    }
+  }
 });
 </script>
+
 

@@ -130,6 +130,7 @@
 </template>
 
 <script setup lang="ts">
+// 路线图弹窗：展示并编辑目标与任务列表。
 import { computed, nextTick, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';

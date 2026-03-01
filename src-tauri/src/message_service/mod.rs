@@ -2,3 +2,5 @@
 
 pub(crate) mod chat_db;
 pub(crate) mod pipeline;
+pub(crate) mod project_data;
+pub(crate) mod project_members;

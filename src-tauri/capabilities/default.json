@@ -4,17 +4,27 @@
   "description": "enables the default permissions",
   "windows": [
     "main",
+    "main*",
     "terminal*",
-    "workspace-selection*"
+    "workspace-selection*",
+    "notification-preview"
   ],
   "permissions": [
     "core:default",
     "dialog:default",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text",
+    "shell:allow-open",
     "core:window:allow-minimize",
     "core:window:allow-maximize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
+    "core:window:allow-destroy",
     "core:window:allow-start-dragging",
-    "core:window:allow-is-maximized"
+    "core:window:allow-start-resize-dragging",
+    "core:window:allow-is-maximized",
+    "core:window:allow-show",
+    "core:window:allow-unminimize",
+    "core:window:allow-set-focus"
   ]
 }

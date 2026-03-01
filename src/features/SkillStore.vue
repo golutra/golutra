@@ -142,9 +142,54 @@
             </div>
           </div>
 
+          <div
+            v-for="folder in localSkillFolders"
+            :key="folder.id"
+            class="glass-panel skill-card rounded-3xl p-6 border border-white/5 hover:border-primary/30 transition-all duration-300 hover:shadow-glow hover:-translate-y-1 group flex flex-col h-full relative overflow-hidden min-w-0"
+          >
+            <div class="skill-card-accent"></div>
+            <div class="flex justify-between items-start mb-4 relative z-10">
+              <div class="w-14 h-14 rounded-2xl border border-white/5 flex items-center justify-center shadow-lg bg-white/5 text-primary">
+                <span class="material-symbols-outlined text-[32px]">folder</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  v-if="canOpenSkillPath"
+                  type="button"
+                  class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center transition-colors"
+                  :aria-label="t('common.openFolder')"
+                  @click="handleOpenSkillPath(folder.path)"
+                >
+                  <span class="material-symbols-outlined text-[18px]">folder_open</span>
+                </button>
+                <button
+                  type="button"
+                  class="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 flex items-center justify-center transition-colors"
+                  :aria-label="t('common.remove')"
+                  :disabled="removingFolderId === folder.id"
+                  @click="handleRemoveFolder(folder)"
+                >
+                  <span class="material-symbols-outlined text-[18px]">delete</span>
+                </button>
+              </div>
+            </div>
+            <h3 class="text-white font-bold text-lg mb-1.5">{{ folder.name }}</h3>
+            <p class="text-white/40 text-[12px] mb-6 flex-1 font-mono truncate" :title="folder.displayPath">{{ folder.displayPath }}</p>
+            <div class="flex items-center gap-2 mt-auto">
+              <span class="text-[10px] font-medium text-white/50">{{ t('skills.detail.source.local') }}</span>
+            </div>
+          </div>
+
           <button
             type="button"
-            class="glass-panel bg-panel-strong/40 rounded-3xl p-4 border border-dashed border-white/10 hover:border-primary/40 transition-all duration-300 hover:shadow-glow hover:-translate-y-1 group flex flex-col items-center justify-center h-full min-h-[160px] text-center"
+            @click="handleImportFolder"
+            :disabled="importingFolder"
+            :class="[
+              'glass-panel bg-panel-strong/40 rounded-3xl p-4 border border-dashed border-white/10 transition-all duration-300 group flex flex-col items-center justify-center h-full min-h-[160px] text-center',
+              importingFolder
+                ? 'opacity-60 cursor-not-allowed'
+                : 'hover:border-primary/40 hover:shadow-glow hover:-translate-y-1'
+            ]"
           >
             <div class="w-10 h-10 rounded-full bg-white/5 group-hover:bg-primary/10 flex items-center justify-center text-white/30 group-hover:text-primary transition-colors mb-2">
               <span class="material-symbols-outlined text-xl">add</span>
@@ -159,12 +204,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+// 技能商店页面：在商店与已安装之间切换，并复用全局安装状态。
+import { computed, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import { createLibrarySkills } from '@/features/skills/skillLibrary';
+import { formatSkillPath } from '@/features/skills/skillPath';
+import { importSkillFolder, openSkillFolder, removeSkillFolder } from '@/features/skills/skillsBridge';
 import { useGlobalStore } from '@/features/global/globalStore';
 import { useNavigationStore } from '@/stores/navigationStore';
+import { ask } from '@tauri-apps/plugin-dialog';
+import { isTauri } from '@tauri-apps/api/core';
 
 type StoreSkill = {
   id: number;
@@ -176,16 +226,25 @@ type StoreSkill = {
   rating: string;
 };
 
+// [TODO/SkillStore, 2026-01-23] 接入技能商店数据源并替换占位数组。
 const skills: StoreSkill[] = [];
 
 const navigationStore = useNavigationStore();
 const { skillStoreTab } = storeToRefs(navigationStore);
 const { setSkillStoreTab } = navigationStore;
 const activeTab = skillStoreTab;
-const { installedSkillIds, installSkill, removeSkill } = useGlobalStore();
+const globalStore = useGlobalStore();
+const { installedSkillIds, importedSkillFolders } = storeToRefs(globalStore);
+const { installSkill, removeSkill, addImportedSkillFolder, removeImportedSkillFolder } = globalStore;
 const librarySkills = createLibrarySkills();
 const installedSkills = computed(() =>
   librarySkills.filter((skill) => installedSkillIds.value.includes(skill.id))
+);
+const localSkillFolders = computed(() =>
+  importedSkillFolders.value.map((folder) => ({
+    ...folder,
+    displayPath: formatSkillPath(folder.path)
+  }))
 );
 
 const storeSkills = computed(() =>
@@ -204,6 +263,7 @@ const filters = [
 ];
 
 const { t } = useI18n();
+const canOpenSkillPath = isTauri();
 
 const handleInstall = (id: number) => {
   void installSkill(id);
@@ -211,5 +271,68 @@ const handleInstall = (id: number) => {
 
 const handleRemove = (id: number) => {
   void removeSkill(id);
+};
+
+const handleOpenSkillPath = async (path: string) => {
+  if (!canOpenSkillPath || !path) {
+    return;
+  }
+  try {
+    await openSkillFolder(path);
+  } catch (error) {
+    console.error('Failed to open skill path.', error);
+  }
+};
+
+const importingFolder = ref(false);
+const removingFolderId = ref<string | null>(null);
+
+const confirmRemoveFolder = async (name: string) => {
+  const message = t('skills.library.removeConfirmMessage', { name });
+  const title = t('skills.library.removeConfirmTitle');
+  if (isTauri()) {
+    return ask(message, {
+      title,
+      kind: 'warning',
+      okLabel: t('skills.library.removeConfirmOk'),
+      cancelLabel: t('skills.library.removeConfirmCancel')
+    });
+  }
+  return window.confirm(`${title}\n${message}`);
+};
+
+const handleImportFolder = async () => {
+  if (importingFolder.value) return;
+  importingFolder.value = true;
+  try {
+    const result = await importSkillFolder();
+    if (!result) {
+      return;
+    }
+    await addImportedSkillFolder({
+      name: result.folderName,
+      path: result.destPath
+    });
+    console.info('Imported skill folder.', result);
+  } catch (error) {
+    console.error('Failed to import skill folder.', error);
+  } finally {
+    importingFolder.value = false;
+  }
+};
+
+const handleRemoveFolder = async (folder: { id: string; name: string; path: string }) => {
+  if (removingFolderId.value) return;
+  const confirmed = await confirmRemoveFolder(folder.name);
+  if (!confirmed) return;
+  removingFolderId.value = folder.id;
+  try {
+    await removeSkillFolder(folder.path);
+    await removeImportedSkillFolder(folder.id);
+  } catch (error) {
+    console.error('Failed to remove skill folder.', error);
+  } finally {
+    removingFolderId.value = null;
+  }
 };
 </script>

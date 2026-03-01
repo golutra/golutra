@@ -125,6 +125,7 @@
 </template>
 
 <script setup lang="ts">
+// 技能详情弹窗：展示单个技能的说明与操作入口。
 import { useI18n } from 'vue-i18n';
 
 const emit = defineEmits<{ (e: 'close'): void; (e: 'back'): void }>();

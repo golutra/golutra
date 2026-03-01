@@ -44,6 +44,7 @@
 </template>
 
 <script setup lang="ts">
+// 成员管理弹窗：用于修改成员状态与操作。
 import { computed, ref, watch, toRef } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Member } from '../types';
@@ -59,6 +60,9 @@ const showRemove = computed(() => props.showRemove !== false);
 const { t } = useI18n();
 
 const roleLabel = computed(() => {
+  if (member.value.roleType === 'assistant') {
+    return t('members.roles.member');
+  }
   if (member.value.roleKey) {
     return t(member.value.roleKey);
   }
