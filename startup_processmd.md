@@ -47,7 +47,3 @@ target/  # 默认的 Rust 构建产物目录
 - `src/shared`: 复用组件与 composables
 - `src/i18n`: 文案与语言配置
 - `src/styles/global.css`: 全局样式与工具类
-
-See `docs/ENGINEERING_GUIDE.md` for conventions and structure details.
-
-Legacy React code is moved to `C:\project\user\nexus-dashboard-suite-legacy`.
