@@ -12,6 +12,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.golutra/
 .golutra/local.json
 
 # Rust

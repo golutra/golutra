@@ -1,0 +1,21 @@
+<svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="any-cli-bg" x1="18" y1="14" x2="78" y2="82" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE7C2"/>
+      <stop offset="0.48" stop-color="#FF9B54"/>
+      <stop offset="1" stop-color="#FF5E3A"/>
+    </linearGradient>
+    <linearGradient id="any-cli-star" x1="58" y1="18" x2="76" y2="36" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF4BF"/>
+      <stop offset="1" stop-color="#FFD36B"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="16" width="76" height="64" rx="18" fill="url(#any-cli-bg)"/>
+  <rect x="14" y="20" width="68" height="56" rx="14" fill="#171A22" fill-opacity="0.82"/>
+  <circle cx="24" cy="28" r="3" fill="#FF8A80"/>
+  <circle cx="34" cy="28" r="3" fill="#FFD180"/>
+  <circle cx="44" cy="28" r="3" fill="#CCFF90"/>
+  <path d="M28 43L41 48L28 53" stroke="#FFF4E6" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M48 57H63" stroke="#FFF4E6" stroke-width="5.5" stroke-linecap="round"/>
+  <path d="M66 17L69.0908 24.9092L77 28L69.0908 31.0908L66 39L62.9092 31.0908L55 28L62.9092 24.9092L66 17Z" fill="url(#any-cli-star)"/>
+</svg>
