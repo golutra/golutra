@@ -28,7 +28,10 @@
 为了让 CLA 流程正常工作，仓库维护者还需要完成以下配置：
 
 1. 在 GitHub 仓库设置中启用 Actions。
-2. 如果组织允许把 Workflow permissions 设为 `Read and write`，可以直接启用；如果组织层强制只读，则需要额外设置仓库 secret `CLA_BOT_TOKEN`，其值应为具有 `repo` 与 `workflow` 范围的 token。
+2. 推荐配置 GitHub App：
+   - repository variable `CLA_APP_ID`
+   - repository secret `CLA_APP_PRIVATE_KEY`
+   如果暂时还没切 GitHub App，可临时保留仓库 secret `CLA_BOT_TOKEN` 作为兼容兜底。
 3. 在默认分支保护规则里把 `CLA` 和 `PR Compliance` 两个检查都加入必过状态。
 4. 额外创建一个未受保护的 `cla-signatures` 分支，专门存储 `.github/cla/signatures.json`。
 5. 不要手动创建 `.github/cla/signatures.json`，首次有人签署时工作流会自动创建。
@@ -48,6 +51,7 @@ git switch master
 ## 说明
 
 - 当前 CLA 流程基于 `contributor-assistant/github-action`。
+- PR 评论与 `cla-signatures` 写入会优先使用 GitHub App 身份。
 - 默认只有 bot 账号在 `allowlist` 中自动豁免，维护者和普通开发者都需要至少完成一次真实签署。
 - 机器人评论签署即代表你确认接受 [`docs/legal/ICLA.md`](./docs/legal/ICLA.md) 中的条款。
 - 企业贡献需要额外的 [`docs/legal/CCLA.md`](./docs/legal/CCLA.md) 或等效书面授权。
