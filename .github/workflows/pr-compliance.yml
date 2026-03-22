@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   validate-pr-metadata:
-    uses: golutra/platform-workflows/.github/workflows/pr-compliance-reusable.yml@v1.1.0
+    uses: golutra/platform-workflows/.github/workflows/pr-compliance-reusable.yml@v1.1.1
     secrets: inherit
     with:
       pr-number: ${{ github.event.pull_request.number }}

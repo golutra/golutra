@@ -48,6 +48,7 @@ git switch master
 ## 说明
 
 - 当前 CLA 流程基于 `contributor-assistant/github-action`。
+- 默认只有 bot 账号在 `allowlist` 中自动豁免，维护者和普通开发者都需要至少完成一次真实签署。
 - 机器人评论签署即代表你确认接受 [`docs/legal/ICLA.md`](./docs/legal/ICLA.md) 中的条款。
 - 企业贡献需要额外的 [`docs/legal/CCLA.md`](./docs/legal/CCLA.md) 或等效书面授权。
 - `PR Compliance` 会检查 PR 模板中的身份声明、第三方来源披露、AI 辅助披露、共同作者披露和企业授权编号。

@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   cla:
-    uses: golutra/platform-workflows/.github/workflows/cla-reusable.yml@v1.1.0
+    uses: golutra/platform-workflows/.github/workflows/cla-reusable.yml@v1.1.1
     secrets: inherit
     with:
       event-name: ${{ github.event_name }}
