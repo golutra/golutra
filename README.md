@@ -165,7 +165,7 @@ Upcoming capabilities include:
 - Unified Agent Interface — a standardized agent protocol for seamless integration into the orchestration layer.
 
 The mission is clear:
-evolve from a multi-agent tool system into a digital life system, improving overall collaboration efficiency by 130% or more through better coordination, specialization, adaptation, and long-horizon autonomy.
+evolve from a multi-agent tool system into a digital life system, improving overall collaboration efficiency by 1300% or more through better coordination, specialization, adaptation, and long-horizon autonomy.
 
 One person. One AI squad.  
 Evolving from an AI squad into an organized, coordinated AI team.
@@ -288,7 +288,7 @@ golutra 仍处于早期阶段。
 - 移动端远程操控 —— 在手机上监控 Agent、查看日志、干预与重定向任务。
 - 统一 Agent 接口 —— 标准化协议，便于无缝接入编排层。
 
-目标明确：从多智能体执行进化为自组织 AI 团队，通过更好的协调、分工与记忆，将整体协作效率提升 130% 以上。
+目标明确：从多智能体执行进化为自组织 AI 团队，通过更好的协调、分工与记忆，将整体协作效率提升 1300% 以上。
 
 一个人，一个 AI 军团。  
 从工具系统进一步进化为具备自组织、自适应与长期运行能力的数字生命体系。

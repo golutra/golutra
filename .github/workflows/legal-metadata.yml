@@ -1,0 +1,38 @@
+name: Legal Metadata
+
+on:
+  pull_request:
+    paths:
+      - docs/legal/corporate-authorizations.json
+  push:
+    branches:
+      - master
+    paths:
+      - docs/legal/corporate-authorizations.json
+
+permissions:
+  contents: read
+
+jobs:
+  validate-corporate-authorizations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate corporate authorization registry schema
+        run: |
+          set -euo pipefail
+          jq -e '.version | type == "number"' docs/legal/corporate-authorizations.json >/dev/null
+          jq -e '.authorizations | type == "array"' docs/legal/corporate-authorizations.json >/dev/null
+          jq -e '
+            .authorizations | all(
+              has("authorizationReference") and
+              has("organization") and
+              has("authorizedGitHubUsernames") and
+              has("authorizedEmails") and
+              has("effectiveDate") and
+              has("expirationDate") and
+              has("status")
+            )
+          ' docs/legal/corporate-authorizations.json >/dev/null
