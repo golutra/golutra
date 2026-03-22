@@ -22,4 +22,5 @@ jobs:
       pr-body: ${{ github.event.pull_request.body }}
       pr-author-login: ${{ github.event.pull_request.user.login }}
       default-branch: ${{ github.event.repository.default_branch }}
+      app-id: ${{ vars.CLA_APP_ID }}
       compliance-profile: bsl-change-license-commercial
