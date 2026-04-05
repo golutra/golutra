@@ -10,6 +10,7 @@ export type ProjectSkillLink = {
   name: string;
   linkPath: string;
   targetPath: string;
+  managed: boolean;
 };
 
 export const importSkillFolder = async (): Promise<SkillFolderImportResult | null> => {
