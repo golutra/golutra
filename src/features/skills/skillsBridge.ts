@@ -6,10 +6,22 @@ export type SkillFolderImportResult = {
   destPath: string;
 };
 
+export type SkillFolderRecord = {
+  name: string;
+  path: string;
+};
+
 export type ProjectSkillLink = {
   name: string;
   linkPath: string;
   targetPath: string;
+};
+
+export const listSkillFolders = async (): Promise<SkillFolderRecord[] | null> => {
+  if (!isTauri()) {
+    return null;
+  }
+  return invoke<SkillFolderRecord[]>('skills_list_folders');
 };
 
 export const importSkillFolder = async (): Promise<SkillFolderImportResult | null> => {

@@ -91,6 +91,7 @@ pub(crate) fn export_commands() -> impl Fn(Invoke) -> bool + Send + Sync + 'stat
     project_skills::project_skills_list,
     project_skills::project_skills_link,
     project_skills::project_skills_unlink,
+    skills::skills_list_folders,
     skills::skills_import_folder,
     skills::skills_remove_folder,
     skills::skills_open_folder
