@@ -2,7 +2,7 @@
 
 use std::{
   fs,
-  path::{Path, PathBuf},
+  path::PathBuf,
 };
 
 use serde::Serialize;
@@ -10,6 +10,7 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
 use super::app::open_folder_in_file_manager;
+use super::skill_layout::{ensure_openai_interface_file, inspect_skill_folder};
 use crate::runtime::{storage, StorageManager};
 
 #[derive(Serialize)]
@@ -52,12 +53,6 @@ pub(crate) async fn skills_import_folder(
       return Err("selected path is not a folder".to_string());
     }
 
-    let folder_name = source_path
-      .file_name()
-      .and_then(|name| name.to_str())
-      .ok_or_else(|| "selected folder name is not valid UTF-8".to_string())?
-      .to_string();
-
     let storage = app.state::<StorageManager>();
     let skills_root = storage::resolve_app_data_path(storage.inner(), "skills")?;
     fs::create_dir_all(&skills_root)
@@ -72,11 +67,23 @@ pub(crate) async fn skills_import_folder(
       return Err("selected folder is already inside the skills library".to_string());
     }
 
-    let destination = unique_destination(&skills_root, &folder_name);
-    storage::copy_dir_recursive(&source_path, &destination)?;
+    let layout = inspect_skill_folder(&source_canonical)?;
+    let destination = skills_root.join(&layout.canonical_name);
+    if destination.exists() {
+      return Err(format!(
+        "skill '{}' already exists in the skills library; update it in place instead of importing a suffixed copy",
+        layout.canonical_name
+      ));
+    }
+
+    storage::copy_dir_recursive(&source_canonical, &destination)?;
+    if let Err(err) = ensure_openai_interface_file(&destination, &layout) {
+      let _ = storage::remove_dir_recursive(&destination);
+      return Err(err);
+    }
 
     Ok(Some(SkillFolderImportResult {
-      folder_name,
+      folder_name: layout.canonical_name,
       dest_path: destination.to_string_lossy().to_string(),
     }))
   }
@@ -140,19 +147,4 @@ pub(crate) fn skills_open_folder(app: AppHandle, path: String) -> Result<(), Str
     return Err("skill folder is outside the skills library".to_string());
   }
   open_folder_in_file_manager(&target_path)
-}
-
-fn unique_destination(root: &Path, folder_name: &str) -> PathBuf {
-  let base = root.join(folder_name);
-  if !base.exists() {
-    return base;
-  }
-  let mut index = 1;
-  loop {
-    let candidate = root.join(format!("{folder_name}-{index}"));
-    if !candidate.exists() {
-      return candidate;
-    }
-    index += 1;
-  }
 }
