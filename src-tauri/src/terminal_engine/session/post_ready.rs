@@ -141,12 +141,14 @@ pub(super) fn maybe_step_post_ready(
                 _ => crate::terminal_engine::default_members::onboarding::PromptType::Onboarding,
             };
             let language = settings_service.and_then(|s| s.get_language());
-            let member_id = {
+            // 同时取出 member_id 和 terminal_type，后者用于生成成员类型友好的协作说明。
+            let (member_id, terminal_type) = {
                 let guard = super::lock_sessions(sessions);
                 guard
                     .sessions
                     .get(terminal_id)
-                    .and_then(|s| s.member_id.clone())
+                    .map(|s| (s.member_id.clone(), s.terminal_type.clone()))
+                    .unwrap_or((None, None))
             };
             match member_id {
                 Some(member_id) => {
@@ -154,6 +156,7 @@ pub(super) fn maybe_step_post_ready(
                         type_enum,
                         member_id.as_str(),
                         language.as_deref(),
+                        terminal_type.as_deref(),
                     );
                     send_post_ready_input(
                         sessions,
