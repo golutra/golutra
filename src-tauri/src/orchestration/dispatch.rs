@@ -22,6 +22,8 @@ pub struct OrchestrationMemberConfig {
     pub name: String,
     pub terminal_type: String,
     pub terminal_command: Option<String>,
+    pub terminal_command_affix_prefix: Option<String>,
+    pub terminal_command_affix_suffix: Option<String>,
     pub terminal_path: Option<String>,
 }
 
@@ -41,8 +43,24 @@ struct MemberTerminalConfig {
     name: String,
     terminal_type: Option<String>,
     terminal_command: Option<String>,
+    terminal_command_affix_prefix: Option<String>,
+    terminal_command_affix_suffix: Option<String>,
     terminal_path: Option<String>,
 }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct BackendTerminalLaunchSpec {
+    cwd: Option<String>,
+    member_id: String,
+    workspace_id: Option<String>,
+    terminal_type: Option<String>,
+    terminal_command: Option<String>,
+    terminal_path: Option<String>,
+    post_ready_mode: String,
+    name: String,
+}
+
+const BACKEND_POST_READY_MODE: &str = "invite";
 
 /// 编排并执行终端消息派发。
 /// 接收一组目标成员配置，自动确保会话存在，并并行（或串行）派发消息。
@@ -250,6 +268,8 @@ fn collect_member_configs(payload: &Value) -> HashMap<String, MemberTerminalConf
             .trim();
         let terminal_type = normalize_string(obj.get("terminalType"));
         let terminal_command = normalize_string(obj.get("terminalCommand"));
+        let terminal_command_affix_prefix = normalize_string(obj.get("terminalCommandAffixPrefix"));
+        let terminal_command_affix_suffix = normalize_string(obj.get("terminalCommandAffixSuffix"));
         let terminal_path = normalize_string(obj.get("terminalPath"));
         map.insert(
             id.to_string(),
@@ -258,11 +278,35 @@ fn collect_member_configs(payload: &Value) -> HashMap<String, MemberTerminalConf
                 name: name.to_string(),
                 terminal_type,
                 terminal_command,
+                terminal_command_affix_prefix,
+                terminal_command_affix_suffix,
                 terminal_path,
             },
         );
     }
     map
+}
+
+fn compose_terminal_command(
+    command: Option<&str>,
+    prefix: Option<&str>,
+    suffix: Option<&str>,
+) -> Option<String> {
+    let mut parts = Vec::new();
+    if let Some(value) = prefix.map(str::trim).filter(|value| !value.is_empty()) {
+        parts.push(value);
+    }
+    if let Some(value) = command.map(str::trim).filter(|value| !value.is_empty()) {
+        parts.push(value);
+    }
+    if let Some(value) = suffix.map(str::trim).filter(|value| !value.is_empty()) {
+        parts.push(value);
+    }
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(" "))
+    }
 }
 
 fn normalize_string(value: Option<&Value>) -> Option<String> {
@@ -291,6 +335,33 @@ fn has_terminal_config(config: &MemberTerminalConfig) -> bool {
             .unwrap_or(false)
 }
 
+fn build_backend_launch_spec(
+    member_id: &str,
+    name: &str,
+    cwd: Option<&str>,
+    workspace_id: Option<&str>,
+    terminal_type: Option<&str>,
+    terminal_command: Option<&str>,
+    terminal_command_affix_prefix: Option<&str>,
+    terminal_command_affix_suffix: Option<&str>,
+    terminal_path: Option<&str>,
+) -> BackendTerminalLaunchSpec {
+    BackendTerminalLaunchSpec {
+        cwd: cwd.map(|value| value.to_string()),
+        member_id: member_id.to_string(),
+        workspace_id: workspace_id.map(|value| value.to_string()),
+        terminal_type: terminal_type.map(|value| value.to_string()),
+        terminal_command: compose_terminal_command(
+            terminal_command,
+            terminal_command_affix_prefix,
+            terminal_command_affix_suffix,
+        ),
+        terminal_path: terminal_path.map(|value| value.to_string()),
+        post_ready_mode: BACKEND_POST_READY_MODE.to_string(),
+        name: name.to_string(),
+    }
+}
+
 fn ensure_backend_session(
     app: &AppHandle,
     window: &WebviewWindow,
@@ -305,23 +376,35 @@ fn ensure_backend_session(
         return Ok(session_id);
     }
 
+    let launch = build_backend_launch_spec(
+        config.id.as_str(),
+        config.name.as_str(),
+        cwd,
+        workspace_id,
+        Some(config.terminal_type.as_str()),
+        config.terminal_command.as_deref(),
+        config.terminal_command_affix_prefix.as_deref(),
+        config.terminal_command_affix_suffix.as_deref(),
+        config.terminal_path.as_deref(),
+    );
+
     terminal_create(
         app.clone(),
         window.clone(),
         state.clone(),
         None,
         None,
-        cwd.map(|value| value.to_string()),
-        Some(config.id.clone()),
-        workspace_id.map(|value| value.to_string()),
+        launch.cwd,
+        Some(launch.member_id),
+        launch.workspace_id,
         Some(true),
         None,
-        Some(config.terminal_type.clone()),
-        config.terminal_command.clone(),
-        config.terminal_path.clone(),
+        launch.terminal_type,
+        launch.terminal_command,
+        launch.terminal_path,
         None,
-        Some("none".to_string()),
-        Some(config.name.clone()),
+        Some(launch.post_ready_mode),
+        Some(launch.name),
         None,
         None,
         None,
@@ -343,23 +426,35 @@ fn ensure_backend_member_session(
         return Ok(session_id);
     }
 
+    let launch = build_backend_launch_spec(
+        config.id.as_str(),
+        config.name.as_str(),
+        Some(workspace_path),
+        Some(workspace_id),
+        config.terminal_type.as_deref(),
+        config.terminal_command.as_deref(),
+        config.terminal_command_affix_prefix.as_deref(),
+        config.terminal_command_affix_suffix.as_deref(),
+        config.terminal_path.as_deref(),
+    );
+
     terminal_create(
         app.clone(),
         window.clone(),
         state.clone(),
         None,
         None,
-        Some(workspace_path.to_string()),
-        Some(config.id.clone()),
-        Some(workspace_id.to_string()),
+        launch.cwd,
+        Some(launch.member_id),
+        launch.workspace_id,
         Some(true),
         None,
-        config.terminal_type.clone(),
-        config.terminal_command.clone(),
-        config.terminal_path.clone(),
+        launch.terminal_type,
+        launch.terminal_command,
+        launch.terminal_path,
         None,
-        Some("none".to_string()),
-        Some(config.name.clone()),
+        Some(launch.post_ready_mode),
+        Some(launch.name),
         None,
         None,
         None,
@@ -392,4 +487,79 @@ fn log_chat_dispatch_skip(
             "detail": detail
         }),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn collect_member_configs_reads_affix_fields() {
+        let payload = json!({
+            "members": [
+                {
+                    "id": "member-1",
+                    "name": "member one",
+                    "terminalType": "codex",
+                    "terminalCommand": "codex",
+                    "terminalCommandAffixPrefix": "env DEBUG=1",
+                    "terminalCommandAffixSuffix": "--yolo",
+                    "terminalPath": "D:/Program Files/Codex"
+                }
+            ]
+        });
+
+        let configs = collect_member_configs(&payload);
+        let config = configs.get("member-1").expect("member config should exist");
+
+        assert_eq!(config.terminal_command.as_deref(), Some("codex"));
+        assert_eq!(
+            config.terminal_command_affix_prefix.as_deref(),
+            Some("env DEBUG=1")
+        );
+        assert_eq!(
+            config.terminal_command_affix_suffix.as_deref(),
+            Some("--yolo")
+        );
+    }
+
+    #[test]
+    fn compose_terminal_command_trims_and_joins_parts() {
+        let composed = compose_terminal_command(
+            Some("  codex resume  "),
+            Some("  cmd /c  "),
+            Some("  --yolo  "),
+        );
+
+        assert_eq!(composed.as_deref(), Some("cmd /c codex resume --yolo"));
+    }
+
+    #[test]
+    fn build_backend_launch_spec_preserves_affix_and_invite_mode() {
+        let launch = build_backend_launch_spec(
+            "member-1",
+            "member one",
+            Some("D:/Program Files/golutra"),
+            Some("workspace-1"),
+            Some("codex"),
+            Some("codex resume"),
+            None,
+            Some("--yolo"),
+            Some("D:/Program Files/Codex"),
+        );
+
+        assert_eq!(launch.cwd.as_deref(), Some("D:/Program Files/golutra"));
+        assert_eq!(launch.workspace_id.as_deref(), Some("workspace-1"));
+        assert_eq!(launch.terminal_type.as_deref(), Some("codex"));
+        assert_eq!(
+            launch.terminal_command.as_deref(),
+            Some("codex resume --yolo")
+        );
+        assert_eq!(
+            launch.terminal_path.as_deref(),
+            Some("D:/Program Files/Codex")
+        );
+        assert_eq!(launch.post_ready_mode, BACKEND_POST_READY_MODE);
+    }
 }
