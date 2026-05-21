@@ -393,6 +393,10 @@ const navigationStore = useNavigationStore();
 const { setActiveTab, setSkillStoreTab } = navigationStore;
 const channelLabel = computed(() => `#${defaultChannelName.value}`);
 const canOpenSkillPath = isTauri();
+const formatError = (error: unknown) => (error instanceof Error ? error.message : String(error));
+const showActionError = (title: string, error: unknown) => {
+  window.alert(`${title}\n\n${formatError(error)}`);
+};
 
 const librarySkills = ref(createLibrarySkills());
 const installedLibrarySkills = computed(() =>
@@ -475,6 +479,7 @@ const loadProjectSkillLinks = async () => {
     projectSkillLinks.value = await listProjectSkillLinks(workspace.path);
   } catch (error) {
     console.error('Failed to load project skill links.', error);
+    showActionError(t('skills.project.title'), error);
   } finally {
     loadingProjectSkills.value = false;
   }
@@ -526,6 +531,7 @@ const handleImportFolder = async () => {
     console.info('Imported skill folder.', result);
   } catch (error) {
     console.error('Failed to import skill folder.', error);
+    showActionError(t('skills.library.importTitle'), error);
   } finally {
     importingFolder.value = false;
   }
@@ -546,6 +552,7 @@ const handleLinkProjectSkill = async (folder: { id: string; path: string }) => {
     closeProjectSkillPicker();
   } catch (error) {
     console.error('Failed to link project skill.', error);
+    showActionError(t('skills.project.import'), error);
   } finally {
     linkingSkillId.value = null;
   }
@@ -571,6 +578,7 @@ const handleRemoveFolder = async (folder: { id: string; name: string; path: stri
     await removeImportedSkillFolder(folder.id);
   } catch (error) {
     console.error('Failed to remove skill folder.', error);
+    showActionError(t('common.remove'), error);
   } finally {
     removingFolderId.value = null;
   }
@@ -594,6 +602,7 @@ const handleRemoveProjectSkill = async (link: { name: string }) => {
     projectSkillLinks.value = projectSkillLinks.value.filter((item) => item.name !== link.name);
   } catch (error) {
     console.error('Failed to unlink project skill.', error);
+    showActionError(t('skills.project.removeConfirmTitle'), error);
   } finally {
     unlinkingSkillName.value = null;
   }

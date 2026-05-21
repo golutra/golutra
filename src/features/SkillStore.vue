@@ -264,6 +264,10 @@ const filters = [
 
 const { t } = useI18n();
 const canOpenSkillPath = isTauri();
+const formatError = (error: unknown) => (error instanceof Error ? error.message : String(error));
+const showActionError = (title: string, error: unknown) => {
+  window.alert(`${title}\n\n${formatError(error)}`);
+};
 
 const handleInstall = (id: number) => {
   void installSkill(id);
@@ -316,6 +320,7 @@ const handleImportFolder = async () => {
     console.info('Imported skill folder.', result);
   } catch (error) {
     console.error('Failed to import skill folder.', error);
+    showActionError(t('skills.library.importTitle'), error);
   } finally {
     importingFolder.value = false;
   }
@@ -331,6 +336,7 @@ const handleRemoveFolder = async (folder: { id: string; name: string; path: stri
     await removeImportedSkillFolder(folder.id);
   } catch (error) {
     console.error('Failed to remove skill folder.', error);
+    showActionError(t('common.remove'), error);
   } finally {
     removingFolderId.value = null;
   }

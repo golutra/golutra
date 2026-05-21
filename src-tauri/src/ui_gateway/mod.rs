@@ -10,6 +10,7 @@ pub(crate) mod platform;
 pub(crate) mod project_skills;
 pub(crate) mod project_data;
 pub(crate) mod project_members;
+pub(crate) mod skill_layout;
 pub(crate) mod skills;
 pub(crate) mod terminal;
 pub(crate) mod terminal_events;

@@ -2,12 +2,13 @@
 
 use std::{
   fs,
-  path::{Path, PathBuf},
+  path::PathBuf,
 };
 
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
+use super::skill_layout::{ensure_openai_interface_file, inspect_skill_folder};
 use crate::runtime::{storage, StorageManager};
 
 #[derive(Serialize)]
@@ -95,6 +96,9 @@ pub(crate) fn project_skills_link(
     return Err("selected skill is not inside the skills library".to_string());
   }
 
+  let layout = inspect_skill_folder(&source_canonical)?;
+  ensure_openai_interface_file(&source_canonical, &layout)?;
+
   if skills_root.exists() {
     let entries = fs::read_dir(&skills_root)
       .map_err(|err| format!("failed to read project skills directory: {err}"))?;
@@ -122,23 +126,31 @@ pub(crate) fn project_skills_link(
       if target_canonical == source_canonical {
         return Err("skill is already linked to this workspace".to_string());
       }
+      let entry_name = entry
+        .file_name()
+        .to_str()
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| entry.file_name().to_string_lossy().to_string());
+      if entry_name == layout.canonical_name {
+        return Err(format!(
+          "workspace already has a project skill named '{}'; remove the old link instead of creating a suffixed copy",
+          layout.canonical_name
+        ));
+      }
     }
   }
 
-  let folder_name = source_canonical
-    .file_name()
-    .and_then(|name| name.to_str())
-    .ok_or_else(|| "selected skill folder name is not valid UTF-8".to_string())?;
-  let destination = unique_destination(&skills_root, folder_name);
+  let destination = skills_root.join(&layout.canonical_name);
+  if destination.exists() {
+    return Err(format!(
+      "project skill destination '{}' already exists",
+      layout.canonical_name
+    ));
+  }
   storage::create_dir_symlink(&source_canonical, &destination)?;
 
-  let name = destination
-    .file_name()
-    .and_then(|value| value.to_str())
-    .map(|value| value.to_string())
-    .unwrap_or_else(|| destination.file_name().unwrap().to_string_lossy().to_string());
   Ok(ProjectSkillLink {
-    name,
+    name: layout.canonical_name,
     link_path: destination.to_string_lossy().to_string(),
     target_path: source_canonical.to_string_lossy().to_string(),
   })
@@ -170,19 +182,4 @@ pub(crate) fn project_skills_unlink(
     return Err("project skill is not a symlink".to_string());
   }
   storage::remove_symlink(&target_path)
-}
-
-fn unique_destination(root: &Path, folder_name: &str) -> PathBuf {
-  let base = root.join(folder_name);
-  if !base.exists() {
-    return base;
-  }
-  let mut index = 1;
-  loop {
-    let candidate = root.join(format!("{folder_name}-{index}"));
-    if !candidate.exists() {
-      return candidate;
-    }
-    index += 1;
-  }
 }
