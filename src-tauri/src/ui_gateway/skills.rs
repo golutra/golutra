@@ -19,6 +19,47 @@ pub(crate) struct SkillFolderImportResult {
   dest_path: String,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SkillFolderEntry {
+  name: String,
+  path: String,
+}
+
+#[tauri::command]
+pub(crate) fn skills_list_folders(app: AppHandle) -> Result<Vec<SkillFolderEntry>, String> {
+  let storage = app.state::<StorageManager>();
+  let skills_root = storage::resolve_app_data_path(storage.inner(), "skills")?;
+  if !skills_root.exists() {
+    return Ok(Vec::new());
+  }
+  if !skills_root.is_dir() {
+    return Err("skills library is not a directory".to_string());
+  }
+
+  let entries =
+    fs::read_dir(&skills_root).map_err(|err| format!("failed to read skills directory: {err}"))?;
+  let mut results = Vec::new();
+  for entry in entries {
+    let entry = entry.map_err(|err| format!("failed to read skill entry: {err}"))?;
+    let path = entry.path();
+    if !path.is_dir() {
+      continue;
+    }
+    let name = entry
+      .file_name()
+      .to_str()
+      .map(|value| value.to_string())
+      .unwrap_or_else(|| entry.file_name().to_string_lossy().to_string());
+    results.push(SkillFolderEntry {
+      name,
+      path: path.to_string_lossy().to_string(),
+    });
+  }
+  results.sort_by(|left, right| left.name.cmp(&right.name));
+  Ok(results)
+}
+
 #[tauri::command]
 pub(crate) async fn skills_import_folder(
   app: AppHandle,
