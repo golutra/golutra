@@ -74,7 +74,19 @@
                 <div class="min-w-0">
                   <h4 class="text-white font-semibold text-sm mb-1 truncate">{{ link.name }}</h4>
                   <p class="text-[11px] text-white/35 font-mono skill-path-multiline">{{ link.displayTargetPath }}</p>
-                  <span class="inline-block mt-2 text-[10px] text-white/50">{{ t('skills.detail.source.local') }}</span>
+                  <div class="mt-2 flex flex-wrap items-center gap-2">
+                    <span
+                      :class="[
+                        'inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                        link.managed ? 'bg-emerald-500/10 text-emerald-200' : 'bg-amber-500/10 text-amber-200'
+                      ]"
+                    >
+                      {{ link.managed ? t('skills.project.linkedBadge') : t('skills.project.localFolderBadge') }}
+                    </span>
+                    <span v-if="!link.managed" class="text-[10px] text-amber-200/80">
+                      {{ t('skills.project.localFolderHint') }}
+                    </span>
+                  </div>
                 </div>
                 <div class="flex flex-col items-center gap-2">
                   <button
@@ -87,6 +99,7 @@
                     <span class="material-symbols-outlined text-[18px]">folder_open</span>
                   </button>
                   <button
+                    v-if="link.managed"
                     type="button"
                     class="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 flex items-center justify-center transition-colors"
                     :disabled="unlinkingSkillName === link.name || workspaceReadOnly"
@@ -424,7 +437,12 @@ const projectSkillLinksView = computed(() =>
 
 const availableProjectSkills = computed(() =>
   localSkillFolders.value.filter(
-    (folder) => !projectSkillLinks.value.some((link) => link.targetPath === folder.path)
+    (folder) =>
+      !projectSkillLinks.value.some((link) => {
+        const sameName = link.name.trim().toLowerCase() === folder.name.trim().toLowerCase();
+        const sameTarget = link.targetPath.trim().toLowerCase() === folder.path.trim().toLowerCase();
+        return sameName || sameTarget;
+      })
   )
 );
 
@@ -576,9 +594,9 @@ const handleRemoveFolder = async (folder: { id: string; name: string; path: stri
   }
 };
 
-const handleRemoveProjectSkill = async (link: { name: string }) => {
+const handleRemoveProjectSkill = async (link: { name: string; managed: boolean }) => {
   const workspace = currentWorkspace.value;
-  if (!workspace || workspaceReadOnly.value) {
+  if (!workspace || workspaceReadOnly.value || !link.managed) {
     return;
   }
   if (unlinkingSkillName.value) {
