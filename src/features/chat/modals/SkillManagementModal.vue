@@ -294,13 +294,23 @@
               <h3 class="text-sm font-bold text-white/80 uppercase tracking-wider">{{ t('skills.project.import') }}</h3>
               <p class="text-xs text-white/40 mt-1">{{ t('skills.project.pickerSubtitle') }}</p>
             </div>
-            <button
-              type="button"
-              class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white flex items-center justify-center transition-colors"
-              @click="closeProjectSkillPicker"
-            >
-              <span class="material-symbols-outlined text-lg">close</span>
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="px-3 py-1.5 rounded-md bg-primary/20 text-primary text-[11px] font-semibold hover:bg-primary/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="bulkLinkingProjectSkills || linkingSkillId !== null || filteredProjectSkills.length === 0"
+                @click="handleLinkAllProjectSkills"
+              >
+                {{ bulkLinkingProjectSkills ? t('skills.project.linkingAll') : t('skills.project.linkAllAction') }}
+              </button>
+              <button
+                type="button"
+                class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white flex items-center justify-center transition-colors"
+                @click="closeProjectSkillPicker"
+              >
+                <span class="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
           </div>
 
           <div class="px-6 py-5">
@@ -338,7 +348,7 @@
                 <button
                   type="button"
                   class="px-3 py-1.5 rounded-md bg-primary/20 text-primary text-[11px] font-semibold hover:bg-primary/30 transition-colors"
-                  :disabled="linkingSkillId === folder.id"
+                  :disabled="bulkLinkingProjectSkills || linkingSkillId === folder.id"
                   @click="handleLinkProjectSkill(folder)"
                 >
                   {{ t('skills.project.linkAction') }}
@@ -410,6 +420,7 @@ const projectSkillLinks = ref<ProjectSkillLink[]>([]);
 const loadingProjectSkills = ref(false);
 const showProjectSkillPicker = ref(false);
 const linkingSkillId = ref<string | null>(null);
+const bulkLinkingProjectSkills = ref(false);
 const unlinkingSkillName = ref<string | null>(null);
 const projectSkillQuery = ref('');
 const { spinning: projectSyncSpinning, triggerSpin: triggerProjectSyncSpin } = useSpinOnce();
@@ -536,7 +547,7 @@ const handleLinkProjectSkill = async (folder: { id: string; path: string }) => {
   if (!workspace || workspaceReadOnly.value) {
     return;
   }
-  if (linkingSkillId.value) {
+  if (linkingSkillId.value || bulkLinkingProjectSkills.value) {
     return;
   }
   linkingSkillId.value = folder.id;
@@ -548,6 +559,42 @@ const handleLinkProjectSkill = async (folder: { id: string; path: string }) => {
     console.error('Failed to link project skill.', error);
   } finally {
     linkingSkillId.value = null;
+  }
+};
+
+const handleLinkAllProjectSkills = async () => {
+  const workspace = currentWorkspace.value;
+  if (!workspace || workspaceReadOnly.value) {
+    return;
+  }
+  if (linkingSkillId.value || bulkLinkingProjectSkills.value) {
+    return;
+  }
+  const targets = [...filteredProjectSkills.value];
+  if (targets.length === 0) {
+    return;
+  }
+
+  bulkLinkingProjectSkills.value = true;
+  const linked: ProjectSkillLink[] = [];
+  let failed = false;
+  try {
+    for (const folder of targets) {
+      try {
+        linked.push(await linkProjectSkill(workspace.path, folder.path));
+      } catch (error) {
+        failed = true;
+        console.error('Failed to link project skill.', error);
+      }
+    }
+    if (linked.length > 0) {
+      projectSkillLinks.value = [...projectSkillLinks.value, ...linked];
+    }
+    if (!failed) {
+      closeProjectSkillPicker();
+    }
+  } finally {
+    bulkLinkingProjectSkills.value = false;
   }
 };
 
