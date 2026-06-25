@@ -307,6 +307,8 @@ export default {
       pickerSubtitle: 'Select skills from your library to link into this workspace.',
       searchPlaceholder: 'Search skills in your library...',
       linkAction: 'Link',
+      linkAllAction: 'Link all',
+      linkingAll: 'Linking...',
       loading: 'Loading project skills...',
       empty: 'No project skills linked yet.',
       emptyLibrary: 'No skills available in your library.',

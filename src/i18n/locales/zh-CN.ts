@@ -307,6 +307,8 @@ export default {
       pickerSubtitle: '从技能库中选择并关联到当前工作区。',
       searchPlaceholder: '搜索技能库中的技能...',
       linkAction: '关联',
+      linkAllAction: '全部关联',
+      linkingAll: '关联中...',
       loading: '正在加载项目技能...',
       empty: '当前还没有关联项目技能。',
       emptyLibrary: '我的技能库里暂无可用技能。',
