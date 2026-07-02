@@ -3,6 +3,7 @@
 pub(crate) mod ai_shared;
 pub(crate) mod claude;
 pub(crate) mod codex;
+pub(crate) mod copilot;
 pub(crate) mod gemini;
 pub(crate) mod onboarding;
 pub(crate) mod opencode;

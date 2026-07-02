@@ -121,6 +121,7 @@ pub(super) enum TerminalType {
     Claude,
     Opencode,
     Qwen,
+    Copilot,
 }
 
 impl TerminalType {
@@ -132,6 +133,7 @@ impl TerminalType {
             "claude" => Some(TerminalType::Claude),
             "opencode" => Some(TerminalType::Opencode),
             "qwen" => Some(TerminalType::Qwen),
+            "copilot" => Some(TerminalType::Copilot),
             _ => None,
         }
     }
@@ -144,6 +146,7 @@ impl TerminalType {
             TerminalType::Claude => "claude",
             TerminalType::Opencode => "opencode",
             TerminalType::Qwen => "qwen",
+            TerminalType::Copilot => "copilot",
         }
     }
 
@@ -155,6 +158,7 @@ impl TerminalType {
             TerminalType::Claude => Some("claude"),
             TerminalType::Opencode => Some("opencode"),
             TerminalType::Qwen => Some("qwen"),
+            TerminalType::Copilot => Some("copilot"),
         }
     }
 }

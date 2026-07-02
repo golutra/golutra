@@ -322,7 +322,7 @@ fn normalize_terminal_type(value: Option<&str>) -> Result<Option<String>, String
     let lower = trimmed.to_lowercase();
     if matches!(
         lower.as_str(),
-        "shell" | "codex" | "gemini" | "claude" | "opencode" | "qwen"
+        "shell" | "codex" | "gemini" | "claude" | "opencode" | "qwen" | "copilot"
     ) {
         return Ok(Some(lower));
     }
