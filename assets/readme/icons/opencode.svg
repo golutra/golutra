@@ -1,4 +1,5 @@
 <svg width="300" height="300" viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="300" height="300" rx="30" fill="#ffffff"/>
 <g transform="translate(30, 0)">
 <g clip-path="url(#clip0_1401_86274)">
 <mask id="mask0_1401_86274" style="mask-type:luminance" maskUnits="userSpaceOnUse" x="0" y="0" width="240" height="300">

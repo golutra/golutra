@@ -28,18 +28,41 @@
 
 <table align="center">
   <tr>
-    <td align="center"><img src="./assets/readme/icons/claude-code.png" alt="Claude Code" height="48" /></td>
-    <td align="center"><img src="./assets/readme/icons/gemini.png" alt="Gemini CLI" height="48" /></td>
-    <td align="center"><img src="./assets/readme/icons/codex.png" alt="Codex CLI" height="48" /></td>
-    <td align="center"><img src="./assets/readme/icons/opencode.svg" alt="OpenCode" width="36" /></td>
-    <td align="center"><img src="./assets/readme/icons/qwen.png" alt="Qwen Code" height="48" /></td>
-    <td align="center"><img src="./assets/readme/icons/openclaw.png" alt="OpenClaw" height="48" /></td>
-    <td align="center"><img src="./assets/readme/icons/any-cli.svg" alt="任意 CLI" height="48" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/golutra-agent.png" alt="golutra-agent" height="56" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/claude-code.png" alt="Claude Code" width="48" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/antigravity.png" alt="Antigravity CLI" height="48" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/codex.png" alt="Codex CLI" height="48" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/grok.png" alt="Grok CLI" height="48" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/pi.svg" alt="PI" height="48" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/deepseek.svg" alt="DeepSeek Harness" height="48" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/hermes.svg" alt="Hermes Agent" height="48" /></td>
   </tr>
   <tr>
+    <td align="center">golutra-agent</td>
     <td align="center">Claude Code</td>
-    <td align="center">Gemini CLI</td>
+    <td align="center">Antigravity CLI</td>
     <td align="center">Codex CLI</td>
+    <td align="center">Grok CLI</td>
+    <td align="center">PI</td>
+    <td align="center">DeepSeek Harness</td>
+    <td align="center">Hermes Agent</td>
+  </tr>
+</table>
+
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/gemini.svg" alt="Gemini CLI" height="48" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/cursor.svg" alt="Cursor CLI" height="48" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/copilot.svg" alt="GitHub Copilot CLI" height="48" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/opencode.svg" alt="OpenCode" height="48" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/qwen.png" alt="Qwen Code" height="48" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/openclaw.png" alt="OpenClaw" width="56" /></td>
+    <td align="center" valign="middle" width="100" height="64"><img src="./assets/readme/icons/any-cli.svg" alt="任意 CLI" height="60" /></td>
+  </tr>
+  <tr>
+    <td align="center">Gemini CLI</td>
+    <td align="center">Cursor CLI</td>
+    <td align="center">GitHub Copilot CLI</td>
     <td align="center">OpenCode</td>
     <td align="center">Qwen Code</td>
     <td align="center">OpenClaw</td>
@@ -91,7 +114,7 @@ golutra-mcp provides a more stable way to connect external tools and agents thro
 - Unlimited multi-agent parallel execution
 - Automated orchestration from analysis to deployment
 - Custom workflows with one-click template import/export for long-running automation
-- CLI compatibility: Claude, Gemini, Codex, OpenCode, Qwen, OpenClaw, Any CLI
+- CLI compatibility: golutra-agent, Claude Code, Antigravity CLI, Codex CLI, Grok CLI, PI, DeepSeek Harness, Hermes Agent, Gemini CLI, Cursor CLI, GitHub Copilot CLI, OpenCode, Qwen Code, OpenClaw, and custom CLIs
 - Stealth terminal with context-aware intelligence
 - Visual interface combined with command-line power
 
@@ -99,19 +122,29 @@ Keep your familiar commands. golutra wires them into a complete engineering loop
 
 ### CLI Compatibility Layer
 
-Keep your existing CLI and instantly upgrade it into a collaboration hub.
+Bring the CLI tools you already use into one workspace.
 
-No terminal switch, no workflow rewrite, no re-training. Keep using the CLI you already trust while adding multi-agent collaboration, orchestration, and result handoff to your current engineering pipeline.
+Choose golutra-agent, Claude Code, Codex CLI, Cursor CLI, GitHub Copilot CLI, or another supported tool for each member. Members work in their own terminal sessions, while golutra coordinates task dispatch, execution status, and replies in the same workspace.
+
+Follow the in-app installation guide and complete any sign-in required by your chosen tool, then select it when creating a member. You can also configure a custom launch command for other CLIs.
 
 Supported CLI tools:
 
+- golutra-agent
 - Claude Code
-- Gemini CLI
+- Antigravity CLI
 - Codex CLI
+- Grok CLI
+- PI (1.5.0+, `pi`; requires Node.js 22.19.0+)
+- DeepSeek Harness (`dsh-tui`; official `@deepseek-ai/dsh@0.2.1-rc.5` with community `@deepseek-harness-tui/dsh-tui@0.18.0`; see the in-app installation guide)
+- [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/tui) (`hermes`; a separate named session for each member, session resume, and optional `--yolo`)
+- [Gemini CLI](https://geminicli.com/docs/) (`gemini`; independent of Antigravity, requires `--session-id` support; optional `--yolo`)
+- [Cursor CLI](https://cursor.com/docs/cli/overview) (`cursor-agent`; creates and resumes a separate conversation for each member; optional `--force`. Use `cursor-agent` to avoid conflicts with the `agent` alias.)
+- [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/copilot-surfaces/copilot-cli) (`copilot`; creates and resumes a separate session for each member; optional `--allow-all`)
 - OpenCode
 - Qwen Code
 - OpenClaw
-- Any CLI
+- Any CLI through a custom launch command; session recovery and permission options depend on the tool's capabilities
 
 What you keep:
 
@@ -126,7 +159,7 @@ With your existing CLI, you can now:
 - Reuse session-level context and prompts without repeating requirements
 - Aggregate test, build, and regression output into one delivery path
 
-Keep your familiar commands. `golutra` wires them into a complete engineering loop.
+Keep your familiar tools and commands, and manage their work from the same conversation and terminal interface.
 
 ### Stealth Terminal
 
@@ -227,7 +260,7 @@ golutra-mcp 提供通过 `golutra-cli` 更稳定连接外部工具与 Agent 的�
 - 多智能体并行执行（不限数量）
 - 从分析到部署的自动编排
 - 自定义工作流与模板一键导入导出，适合长期运行的自动化系统
-- CLI 兼容：Claude、Gemini、Codex、OpenCode、Qwen、OpenClaw、任意 CLI
+- CLI 兼容：golutra-agent、Claude Code、Antigravity CLI、Codex CLI、Grok CLI、PI、DeepSeek Harness、Hermes Agent、Gemini CLI、Cursor CLI、GitHub Copilot CLI、OpenCode、Qwen Code、OpenClaw，以及自定义 CLI
 - 隐形终端与上下文感知智能
 - 可视化界面结合命令行能力
 
@@ -235,19 +268,29 @@ golutra-mcp 提供通过 `golutra-cli` 更稳定连接外部工具与 Agent 的�
 
 ### CLI 兼容生态
 
-保留你原本的 CLI，也能一键升级成协作中枢。
+把你熟悉的 CLI 工具放进同一个工作空间。
 
-不换终端、不改习惯、不重学流程。直接沿用你正在使用的 CLI，把多智能体协作、任务编排与结果回传能力接到现有工程链路里。
+你可以为不同成员选择 golutra-agent、Claude Code、Codex CLI、Cursor CLI、GitHub Copilot CLI 等工具。每个成员保留独立的终端会话，由 golutra 在同一工作空间中协调任务派发、执行状态和结果回复。
+
+按照应用内指引安装对应工具，并按工具要求完成登录，再在创建成员时选择相应 CLI。其他命令行工具也可以通过自定义启动命令接入。
 
 支持的 CLI 工具：
 
+- golutra-agent
 - Claude Code
-- Gemini CLI
+- Antigravity CLI
 - Codex CLI
+- Grok CLI
+- PI（1.5.0+，命令 `pi`；需要 Node.js 22.19.0+）
+- DeepSeek Harness（命令 `dsh-tui`；官方 `@deepseek-ai/dsh@0.2.1-rc.5` 配合社区 `@deepseek-harness-tui/dsh-tui@0.18.0`，安装步骤见应用内指引）
+- [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/tui)（命令 `hermes`；每位成员使用独立命名会话，支持会话恢复及可选 `--yolo`）
+- [Gemini CLI](https://geminicli.com/docs/)（命令 `gemini`，与 Antigravity 独立并存；需支持 `--session-id`，无限制为 `--yolo`）
+- [Cursor CLI](https://cursor.com/docs/cli/overview)（命令 `cursor-agent`；为每位成员创建和恢复独立会话，可选 `--force`。使用 `cursor-agent` 可避免 `agent` 别名冲突）
+- [GitHub Copilot CLI](https://docs.github.com/zh/copilot/concepts/copilot-surfaces/copilot-cli)（命令 `copilot`；为每位成员创建和恢复独立会话，可选 `--allow-all`）
 - OpenCode
 - Qwen Code
 - OpenClaw
-- 任意 CLI
+- 任意 CLI 可通过自定义启动命令接入；会话恢复和权限选项以对应工具实际支持的能力为准
 
 你将保留：
 
@@ -262,7 +305,7 @@ golutra-mcp 提供通过 `golutra-cli` 更稳定连接外部工具与 Agent 的�
 - 会话级上下文记忆与指令复用，避免重复解释需求
 - 测试、构建、回归信息集中汇总，交付路径更短
 
-你继续使用熟悉的命令，`golutra` 负责把能力串联成完整工程闭环。
+继续使用熟悉的工具和命令，在统一的会话与终端界面中查看进展、分配任务和接收结果。
 
 ### 隐形终端
 
