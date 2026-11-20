@@ -59,6 +59,14 @@ export const BASE_TERMINALS: BaseTerminal[] = [
     terminalType: 'shell',
     icon: 'terminal',
     gradient: 'from-slate-500 to-slate-300'
+  },
+  {
+    id: 'copilot-cli',
+    nameKey: 'settings.memberOptions.copilot',
+    command: 'copilot',
+    terminalType: 'copilot',
+    icon: 'smart_toy',
+    gradient: 'from-violet-500 to-purple-400'
   }
 ];
 

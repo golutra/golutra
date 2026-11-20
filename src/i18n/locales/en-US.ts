@@ -697,6 +697,7 @@ export default {
       claude: 'Claude Code',
       opencode: 'opencode',
       qwen: 'Qwen Code',
+      copilot: 'Copilot CLI',
       terminal: 'Terminal',
       custom: 'Custom CLI'
     },

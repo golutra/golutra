@@ -114,6 +114,7 @@ fn resolve_terminal_type(raw: Option<&str>, command: Option<&str>) -> TerminalTy
             "claude" => return TerminalType::Claude,
             "opencode" => return TerminalType::Opencode,
             "qwen" => return TerminalType::Qwen,
+            "copilot" => return TerminalType::Copilot,
             _ => {}
         }
     }
